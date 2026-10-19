@@ -38,19 +38,19 @@ gh repo create koraussie7/dadabot \
 
 ## What's already done
 
-✅ Local commit `947da96` — 165 files, 21,543 insertions
-✅ Tag `v0.17` (annotated)
+✅ Local commit `de8e31a` (v0.18) — MuhanAI Point + growth system
+✅ Tag `v0.18` (annotated)
 ✅ `.gitignore` excludes secrets (`.env`, `identity.json`)
-✅ All 121 test suites pass with 0 failures
+✅ All 239 tests pass across 10 suites
+✅ Distribution bundles built in `dist/v0.18/` (209K each)
 
 ## Build verification done
 
 ```
-✓ server boots on port 4319
-✓ sam-tools module loads with 6 providers
 ✓ busabase 25/25, affine 21/21, proposal-bridge 21/21,
    sam-tools 14/14, dadabot-cli 22/22, server 23/23,
-   openwork-client 8/8
+   openwork-client 8/8, @agentmesh/points 60/60, points-routes 15/15
+Total: 239/239 ✔
 ```
 
 ## Files in the commit
