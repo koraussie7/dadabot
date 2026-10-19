@@ -23,7 +23,11 @@
 **파일**: `dashboard-v2.html` 라인 787 다음에 삽입:
 
 ```html
-<button class="nav-item" data-space="dadabot"><span class="dot" aria-hidden="true"></span>다다봇<span class="count">44</span></button>
+<button class="nav-item" data-space="dadabot">
+  <span class="dot" aria-hidden="true"></span>다다봇<span class="count"
+    >44</span
+  >
+</button>
 ```
 
 ## 2️⃣ SPACE_META 등록 (라인 1230)
@@ -90,7 +94,9 @@ dadabot:   ["다다봇",      "agentmesh://local · 6 free providers · 0 api ke
   cursor: pointer;
   width: 100%;
 }
-.ddb-cta:hover { background: #fbbf24; }
+.ddb-cta:hover {
+  background: #fbbf24;
+}
 ```
 
 ## 5️⃣ 라우트 추가 (React Router 또는 page redirect)
@@ -129,9 +135,9 @@ cd /Users/brianyeon/CodeGPT/integration-finalize/apps/dadabot-dashboard
 
 ## 🔗 핵심 파일
 
-| 파일 | 역할 |
-|------|------|
-| `apps/dadabot-dashboard/src/pages/LandingPage.tsx` | muhanai.com 진입점 (NEW) |
-| `apps/dadabot-dashboard/src/App.tsx` | `/dadabot` 라우트 등록 |
-| `apps/dadabot-dashboard/src/lib/sidebar.tsx` | 사이드바에 Home 항목 추가 |
-| `apps/dadabot-dashboard/src/lib/dashboard.css` | 랜딩 스타일 |
+| 파일                                               | 역할                      |
+| -------------------------------------------------- | ------------------------- |
+| `apps/dadabot-dashboard/src/pages/LandingPage.tsx` | muhanai.com 진입점 (NEW)  |
+| `apps/dadabot-dashboard/src/App.tsx`               | `/dadabot` 라우트 등록    |
+| `apps/dadabot-dashboard/src/lib/sidebar.tsx`       | 사이드바에 Home 항목 추가 |
+| `apps/dadabot-dashboard/src/lib/dashboard.css`     | 랜딩 스타일               |
