@@ -1394,3 +1394,103 @@ Total:                  164/164 ✔
 │  └─ registers agent → ~/.dadabot/identity.json│
 └──────────────────────────────────────────────┘
 ```
+
+---
+
+## v0.17 → v0.18 (2026-10-19, MuhanAI Point + Aggressive Growth)
+
+### 🆕 v0.18 theme: aggressive growth without token listing
+
+Following the user's growth strategy doc (10万 first users via signup bonus, referrals,
+daily engagement, contribution economy), we add a **server-backed POINT system** that
+gives the feel of a token **without** legal, cost, or farming risk.
+
+**No blockchain. No exchange listing. No cash-out. No "token roadmap" marketing.**
+
+### New package: `@agentmesh/points` (1,150 LOC + 60 tests)
+
+| Module | Purpose |
+|--------|---------|
+| `ledger.ts` | Append-only ledger: `issue`, `spend`, `transfer`, balance, history. Idempotent. |
+| `rewards.ts` | Priority-based campaign engine with per-user caps, expiry, min-spend gates |
+| `budget.ts` | Campaign caps + per-user daily quotas + point costs per usage-kind |
+| `referrals.ts` | Direct-invite graph with activation tracking + anti-gaming cluster signal |
+| `contributions.ts` | Tool/model provider registry with reputation-weighted rewards |
+| `retention.ts` | 7d/30d retention + AI usage rate metrics |
+| `constants.ts` | Reward amounts, point costs, daily limits — single tuning knob |
+
+### New server routes (15 endpoints, 15 tests)
+
+```
+GET    /api/points/balance/:userId
+GET    /api/points/history/:userId?limit=50
+POST   /api/points/issue       (admin)
+POST   /api/points/spend
+POST   /api/points/transfer
+POST   /api/referrals/code     → { code }
+POST   /api/referrals/signup   (fires signup-bonus + referral-invitee)
+POST   /api/referrals/activate (fires first-ai-call + referral-activated)
+GET    /api/referrals/stats/:inviterId
+POST   /api/contributions
+POST   /api/contributions/:id/verify  (pays reward on accept)
+POST   /api/contributions/:id/use     (milestone bonus at 100 uses)
+GET    /api/contributions
+GET    /api/growth/stats       (retention + AI usage rate)
+POST   /api/growth/signup
+POST   /api/growth/activity
+```
+
+### Reward economics (v1 defaults)
+
+| Trigger | Amount | Cap | Notes |
+|---------|--------|-----|-------|
+| signup-bonus | 100 | — | first credit |
+| first-ai-call | 50 | 1/user | bonus for actually using AI |
+| daily-streak | 20 | 7 | one per day |
+| weekly-challenge | 200 | 1/week | requires 100 min lifetime spend |
+| referral-inviter | 300 | — | paid on referee activation |
+| referral-invitee | 100 | — | on signup |
+| model-contribution | 500 × repMul | — | reputation-weighted, max 2× |
+| tool-contribution | 200 × repMul | — | |
+
+### Cost-control guard rails
+
+| Knob | Default |
+|------|---------|
+| Weekly campaign cap | 10M POINT |
+| Per-user daily spend | 500 POINT |
+| ai-chat calls/day | 50 |
+| ai-code calls/day | 20 |
+| mcp-tool calls/day | 200 |
+
+### New governance doc
+
+`docs/growth/GOVERNANCE.md` — explicit checklist for **what would need to happen**
+before any future token conversion (legal opinion, ≥ 100k MAU, ≥ 1 year history,
+on-chain audit, user opt-in, etc.). **None of these are promised.**
+
+### Test totals
+
+```
+busabase-adapter:      25/25 ✔
+affine-adapter:        21/21 ✔
+proposal-bridge:       21/21 ✔
+sam-tools:             14/14 ✔
+dadabot-cli:           22/22 ✔
+tauri-mobile:          30/30 ✔
+server (OpenWork API): 23/23 ✔
+openwork-client:        8/8  ✔
+@agentmesh/points:     60/60 ✔ ← NEW
+points-routes (HTTP):  15/15 ✔ ← NEW
+──────────────────────────────────────
+Total:                239/239 ✔
+```
+
+### 4-phase rollout matches the strategy doc
+
+| Phase | Goal | v0.18 status |
+|-------|------|--------------|
+| 1. Free points for user acquisition | 10万 users | ✅ Server-side ledger + signup bonus + referral system |
+| 2. Points buy real usage | Convert signups → AI users | ✅ Point costs + daily quotas + ai-chat/translate/code/mcp sinks |
+| 3. Contribution economy | Self-sustaining supply | ✅ Contributions registry + reputation-weighted rewards |
+| 4. Future token decision | Only if conditions met | ✅ `docs/growth/GOVERNANCE.md` checklist |

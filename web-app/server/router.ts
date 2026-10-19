@@ -20,6 +20,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { randomBytes } from "node:crypto";
 import { store, type Capability, type TaskStatus } from "./store.ts";
+import { handlePointsRoute } from "./growth/points-routes.ts";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -282,6 +283,11 @@ export async function route(req: IncomingMessage, res: ServerResponse): Promise<
         const out = await handleDecide(taskId!, body);
         return void json(res, out.status, out.body);
       }
+    }
+
+    // Growth / points / referrals / contributions
+    if (path.startsWith("/api/points/") || path.startsWith("/api/referrals/") || path.startsWith("/api/contributions") || path.startsWith("/api/growth/")) {
+      return handlePointsRoute(req, res);
     }
 
     return void json(res, 404, { ok: false, error: { code: "not_found", message: `no route for ${method} ${path}` } });

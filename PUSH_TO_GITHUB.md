@@ -6,7 +6,7 @@ The repo is committed and tagged locally, but the GitHub PAT lacks `repo:create`
 
 1. Go to https://github.com/new
 2. Repository name: **`dadabot`**
-3. Description: *Local-first AI Agent OS — 6 free models, human-in-the-loop safety, BlockSuite canvas, OpenWork-compatible agent registry, Tauri mobile shell*
+3. Description: _Local-first AI Agent OS — 6 free models, human-in-the-loop safety, BlockSuite canvas, OpenWork-compatible agent registry, Tauri mobile shell_
 4. Visibility: **Public**
 5. **DO NOT** initialize with README, .gitignore, or license
 6. Click **Create repository**
