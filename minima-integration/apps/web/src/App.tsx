@@ -47,7 +47,7 @@ const GhostPage = lazy(() => import("./pages/GhostPage"));
 // NEW: Minima pages
 const MinimaWalletPage = lazy(() => import("./components/minima/MinimaWalletPage"));
 const MinimaAnchorPage = lazy(() => import("./components/minima/MinimaAnchorPage"));
-const MinimaNodeStatusPage = lazy(() => import("./components/minima/MinimaNodeStatusPage"));
+const MinimaNodeStatusPage = lazy(() => import("./components/minima/MinimaNodeStatus"));
 const AgentMemoryPage = lazy(() => import("./components/minima/AgentMemoryPage"));
 
 function App() {

@@ -32,7 +32,7 @@
 set -e
 
 SRC="/Users/brianyeon/muhanai-folder/muhanai/muhanai/packaging/npm/token-free-gateway/agentmesh/apps/web"
-REMOTE="${MUHANAI_REMOTE:-muhanai.com}"
+REMOTE="${MUHANAI_REMOTE:-root@185.55.240.110}"
 REMOTE_ROOT="${MUHANAI_REMOTE_ROOT:-/var/www/muhanai.com}"
 BACKUP_DIR="$HOME/.dadabot/backups/muhanai/$(date +%Y%m%d-%H%M%S)"
 
@@ -133,10 +133,11 @@ echo -e "${BOLD}━━━ Deploying to live ━━━${RESET}"
 rsync -avz --delete "$SRC/dist/" "$REMOTE:$REMOTE_ROOT/"
 echo -e "${GREEN}  ✓ rsync complete${RESET}"
 
-# Reload nginx
-ssh "$REMOTE" 'sudo systemctl reload nginx' 2>/dev/null && \
-  echo -e "${GREEN}  ✓ nginx reloaded${RESET}" || \
-  echo -e "${YELLOW}  ⚠ nginx reload failed (run manually)${RESET}"
+# Static files need no reload: origin is Caddy (serves /var/www from disk).
+# Keep a reachability check instead of nginx reload.
+ssh "$REMOTE" 'command -v caddy >/dev/null && echo CADDY_OK' 2>/dev/null && \
+  echo -e "${GREEN}  ✓ origin web server reachable (Caddy, no reload needed)${RESET}" || \
+  echo -e "${YELLOW}  ⚠ origin web server check failed (verify manually)${RESET}"
 
 # Cloudflare cache purge (if credentials available)
 if [ -n "$CF_API_TOKEN" ] && [ -n "$CF_ZONE_ID" ]; then
@@ -144,7 +145,7 @@ if [ -n "$CF_API_TOKEN" ] && [ -n "$CF_ZONE_ID" ]; then
   curl -sX POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/purge_cache" \
     -H "Authorization: Bearer $CF_API_TOKEN" \
     -H "Content-Type: application/json" \
-    --data '{"files":["https://muhanai.com/assets/'"$NEW_BUNDLE"'","https://muhanai.com/assets/'"$NEW_CHUNK"'"]}' \
+    --data '{"files":["https://muhanai.com/","https://muhanai.com/dadabot","https://muhanai.com/assets/'"$NEW_BUNDLE"'","https://muhanai.com/assets/'"$NEW_CHUNK"'"]}' \
     | head -c 200
   echo ""
   echo -e "${GREEN}  ✓ Cloudflare cache purged${RESET}"
