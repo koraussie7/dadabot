@@ -15,6 +15,7 @@ export interface SidebarEntry {
 }
 
 export const DADABOT_SIDEBAR: SidebarEntry[] = [
+  { path: "/dadabot", label: "Home",          icon: "🪆" },
   { path: "/inbox",  label: "Inbox",        icon: "🔒", badge: "pending" },
   { path: "/canvas", label: "Block Canvas", icon: "🧱" },
   { path: "/safety", label: "Safety",       icon: "🛡️" },

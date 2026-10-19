@@ -1,0 +1,66 @@
+# Minima Configuration for MuhanAI
+# Copy of minima-conf.yaml with MuhanAI-specific settings
+
+# Data directory (mounted volume in docker-compose)
+data: /root/muhanai-data
+
+# Network settings
+test: true
+nop2p: false
+genesis: true
+mdsenable: true
+rpc: true
+
+# RPC Configuration
+rpcport: 9001
+rpcuser: minima
+rpcpassword: ${MINIMA_PASSWORD:-changeme}
+
+# WebSocket
+wsport: 9002
+
+# MDS (Minima Data Service)
+mdsport: 9003
+mdsenable: true
+
+# MDS Configuration
+mds:
+  # MDS data directory
+  data: /root/muhanai-data/mds
+  # Enable MDS API
+  enable: true
+  # MDS RPC port
+  rpcport: 9003
+
+# P2P settings
+p2p:
+  enabled: true
+  port: 9004
+  # Bootstrap nodes (add your bootstrap nodes here)
+  bootstrap:
+    - "bootstrap1.minima.global:9004"
+    - "bootstrap2.minima.global:9004"
+
+# Logging
+loglevel: INFO
+logfile: /root/muhanai-data/logs/minima.log
+
+# Java options (set via JAVA_OPTS env var in docker-compose)
+# -Xmx2g -Xms1g
+
+# MuhanAI specific
+muhanai:
+  # Enable MuhanAI-specific features
+  enabled: true
+  # Data directory for MuhanAI-specific data
+  datadir: /root/muhanai-data/muhanai
+  # MDS namespaces for MuhanAI
+  namespaces:
+    - "agent-memory"
+    - "anchor"
+    - "muhanai"
+  # Bridge configuration
+  bridge:
+    enabled: true
+    address: ${MINIMA_BRIDGE_ADDRESS}
+    token: ${MINIMA_SETTLEMENT_TOKEN_ID}
