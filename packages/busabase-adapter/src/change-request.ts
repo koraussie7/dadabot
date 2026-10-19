@@ -16,6 +16,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
   decide,
+  type Permission,
   type PolicyContext,
   type PolicyDecision,
 } from "./policy.ts";

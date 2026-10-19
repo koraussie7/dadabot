@@ -11,7 +11,7 @@
  *   - Last-write-wins on props.updatedAt
  *   - On connect, sender broadcasts full state snapshot; receivers merge
  */
-import type { Workspace, BlockInstance } from "./store.js";
+import type { Workspace, BlockInstance } from "./store.ts";
 
 export interface SyncAdapter {
   readonly id: string;

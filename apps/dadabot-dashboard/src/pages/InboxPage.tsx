@@ -19,7 +19,7 @@ import {
   type ChangeRequestStatus,
   type ProposedFile,
 } from "../../../../packages/busabase-adapter/src/index.ts";
-import { DashboardShell } from "../components/DashboardShell";
+import { DashboardShell } from "../components/DashboardShell.tsx";
 
 type Risk = "critical" | "high" | "medium" | "low";
 

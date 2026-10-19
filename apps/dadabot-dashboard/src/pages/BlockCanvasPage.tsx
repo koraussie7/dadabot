@@ -21,9 +21,8 @@ import {
   getSchema,
   type Workspace,
   type BlockInstance,
-  type ChangeRequest,
 } from "../../../../packages/affine-adapter/src/index.ts";
-import { DashboardShell } from "../components/DashboardShell";
+import { DashboardShell } from "../components/DashboardShell.tsx";
 
 function BlockCard({
   block,

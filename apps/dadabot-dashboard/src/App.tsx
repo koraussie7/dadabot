@@ -7,9 +7,9 @@
  */
 import * as React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { InboxPage } from "./pages/InboxPage";
-import { BlockCanvasPage } from "./pages/BlockCanvasPage";
-import { SafetyPipelinePage } from "./pages/SafetyPipelinePage";
+import { InboxPage } from "./pages/InboxPage.tsx";
+import { BlockCanvasPage } from "./pages/BlockCanvasPage.tsx";
+import { SafetyPipelinePage } from "./pages/SafetyPipelinePage.tsx";
 
 export function App(): React.ReactElement {
   return (

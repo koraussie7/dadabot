@@ -12,9 +12,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@agentmesh/busabase-adapter": "workspace:*",
-    "@agentmesh/affine-adapter": "workspace:*",
-    "@agentmesh/proposal-bridge": "workspace:*",
+    "@agentmesh/busabase-adapter": "file:../../packages/busabase-adapter",
+    "@agentmesh/affine-adapter": "file:../../packages/affine-adapter",
+    "@agentmesh/proposal-bridge": "file:../../packages/proposal-bridge",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.0.0"

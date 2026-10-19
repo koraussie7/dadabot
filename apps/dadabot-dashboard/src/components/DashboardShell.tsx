@@ -6,7 +6,7 @@
  * to slot into muhanai's router.
  */
 import * as React from "react";
-import { DashboardSidebar } from "../lib/sidebar";
+import { DashboardSidebar } from "../lib/sidebar.tsx";
 import "../lib/dashboard.css";
 
 export interface DashboardShellProps {

@@ -52,7 +52,7 @@ function makeCR(overrides: Partial<ChangeRequest> = {}): ChangeRequest {
       ] as ProposedFile[],
       policy,
     },
-    { autoMergeAcknowledged: true, ...(overrides as never) },
+    { autoMergeAcknowledged: true, ...(overrides as object) },
   );
 }
 

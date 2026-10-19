@@ -1,4 +1,4 @@
-유/**
+/**
  * sidebar.tsx — Dadabot sidebar definitions.
  *
  * Designed to drop into muhanai's Sidebar.tsx as additional entries,

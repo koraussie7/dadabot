@@ -19,6 +19,7 @@ import {
   type ProposedFile,
   type AuditLogger,
   type Permission,
+  type ActionCategory,
 } from "../../busabase-adapter/src/index.ts";
 import {
   createBlock,
@@ -107,7 +108,7 @@ export async function runPipeline(
     /** For changeRequest: callback that resolves on decision (used in tests) */
     awaitDecision?: (cr: ChangeRequest) => Promise<"approve" | "reject">;
     /** Maps file edits → side effects; if omitted, the pipeline records intent only */
-    executor?: (files: ProposalFileChange[]) => Promise<void>;
+    executor?: (files: ProposalFileChange[]) => Promise<unknown>;
   } = {},
 ): Promise<PipelineResult> {
   const emit = (stage: PipelineStage, detail?: string, extras: Partial<PipelineEvent> = {}): void => {
@@ -212,7 +213,7 @@ export async function runPipeline(
   };
 }
 
-function mapKindToCategory(kind: Proposal["kind"]): import("@agentmesh/busabase-adapter").ActionCategory {
+function mapKindToCategory(kind: Proposal["kind"]): ActionCategory {
   switch (kind) {
     case "file_edit":
     case "file_create":

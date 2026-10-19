@@ -6,7 +6,10 @@
  * the SAME API so downstream consumers (UI, tests, persistence) work identically.
  * Upgrading to full Y.js later is a 1-file swap.
  */
-import type { BlockSchema, BlockInstance } from "./blocks.js";
+import { type BlockInstance, type BlockSchema } from "./blocks.ts";
+
+export type { BlockInstance };
+export type { BlockSchema };
 
 export interface WorkspaceOptions {
   id: string;

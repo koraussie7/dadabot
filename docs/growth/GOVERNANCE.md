@@ -4,16 +4,16 @@
 
 ## What we are (v0.18 — current state)
 
-| Property | Status |
-|----------|--------|
-| **Form** | Server-backed ledger entry (`MuhanAI POINT` / `POINT`) |
-| **Settlement** | Central server DB (Postgres in production; in-memory in tests) |
-| **Cash-out** | **NOT supported.** No fiat off-ramp. |
-| **P2P transfer** | Allowed only as `system-adjust` for admin-managed internal moves. |
-| **Exchange listing** | **NOT listed, NOT planned.** |
-| **Marketing claim** | Never advertised as an investment, future token, or appreciation vehicle. |
-| **Issuance authority** | Server-side only. Cannot be minted by users. |
-| **Regulatory frame** | Treated as a closed-loop promotional credit, not a security or e-money. |
+| Property               | Status                                                                    |
+| ---------------------- | ------------------------------------------------------------------------- |
+| **Form**               | Server-backed ledger entry (`MuhanAI POINT` / `POINT`)                    |
+| **Settlement**         | Central server DB (Postgres in production; in-memory in tests)            |
+| **Cash-out**           | **NOT supported.** No fiat off-ramp.                                      |
+| **P2P transfer**       | Allowed only as `system-adjust` for admin-managed internal moves.         |
+| **Exchange listing**   | **NOT listed, NOT planned.**                                              |
+| **Marketing claim**    | Never advertised as an investment, future token, or appreciation vehicle. |
+| **Issuance authority** | Server-side only. Cannot be minted by users.                              |
+| **Regulatory frame**   | Treated as a closed-loop promotional credit, not a security or e-money.   |
 
 ## Why this design
 
@@ -55,15 +55,15 @@ A future token conversion would need **all** of the following — and missing on
 The most aggressive marketing move (give every signup 1,000 POINT) is safe **only** if
 the budget controller enforces:
 
-| Knob | v0.18 default | Where |
-|------|---------------|-------|
-| Weekly campaign issue cap | 10,000,000 POINT | `growth.budget.registerWindow` |
-| Per-user daily point spend | 500 POINT | `DAILY_LIMITS["user-daily-points"]` |
-| Per-user ai-chat calls/day | 50 | `DAILY_LIMITS["ai-chat"]` |
-| Per-user ai-code/day | 20 | `DAILY_LIMITS["ai-code"]` |
-| Min lifetime spend before weekly reward | 100 POINT | `RewardRule.minUserSpend` |
-| Referral reward requires activation | Yes | `markActivated` gate |
-| Contribution reward uses reputation multiplier | 1.0× – 2.0× | `computeReward` |
+| Knob                                           | v0.18 default    | Where                               |
+| ---------------------------------------------- | ---------------- | ----------------------------------- |
+| Weekly campaign issue cap                      | 10,000,000 POINT | `growth.budget.registerWindow`      |
+| Per-user daily point spend                     | 500 POINT        | `DAILY_LIMITS["user-daily-points"]` |
+| Per-user ai-chat calls/day                     | 50               | `DAILY_LIMITS["ai-chat"]`           |
+| Per-user ai-code/day                           | 20               | `DAILY_LIMITS["ai-code"]`           |
+| Min lifetime spend before weekly reward        | 100 POINT        | `RewardRule.minUserSpend`           |
+| Referral reward requires activation            | Yes              | `markActivated` gate                |
+| Contribution reward uses reputation multiplier | 1.0× – 2.0×      | `computeReward`                     |
 
 A startup that grows from 10k to 1M MAU should be able to **halve** the per-user signup
 bonus without losing retention — the budget controller makes that A/B-testable
