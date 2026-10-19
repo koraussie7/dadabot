@@ -1,0 +1,9 @@
+PackageIdentifier: DadaBot.DadaBot
+PackageVersion: 0.1.0-beta.1
+PackageLocale: en-US
+Publisher: DadaBot Project
+PackageName: DadaBot
+License: MIT
+ShortDescription: Local-first AI Agent OS — multi-model router, human-in-the-loop safety, block canvas
+ManifestType: version
+ManifestVersion: 1.6.0

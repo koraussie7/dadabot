@@ -1,0 +1,31 @@
+{
+  "name": "@dadabot-ai/cli",
+  "version": "0.1.0-beta.1",
+  "description": "DadaBot CLI — local-first AI Agent OS. Bundles Node + Rust binaries via `optionalDependencies`.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "dadabot": "./bin/dadabot.js"
+  },
+  "scripts": {
+    "postinstall": "node ./scripts/install.js"
+  },
+  "optionalDependencies": {
+    "@dadabot-ai/linux-x64": "0.1.0-beta.1",
+    "@dadabot-ai/linux-arm64": "0.1.0-beta.1",
+    "@dadabot-ai/darwin-x64": "0.1.0-beta.1",
+    "@dadabot-ai/darwin-arm64": "0.1.0-beta.1",
+    "@dadabot-ai/darwin-universal": "0.1.0-beta.1",
+    "@dadabot-ai/win32-x64": "0.1.0-beta.1"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "dadabot",
+    "ai-agent",
+    "human-in-the-loop",
+    "block-canvas",
+    "cli"
+  ]
+}

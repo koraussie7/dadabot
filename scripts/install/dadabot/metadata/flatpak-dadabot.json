@@ -1,0 +1,38 @@
+{
+  "app-id": "dev.dadabot.DadaBot",
+  "runtime": "org.freedesktop.Platform",
+  "runtime-version": "23.08",
+  "sdk": "org.freedesktop.Sdk",
+  "command": "dadabot",
+  "finish-args": [
+    "--share=ipc",
+    "--share=network",
+    "--socket=x11",
+    "--socket=wayland",
+    "--socket=fallback-x11",
+    "--filesystem=home",
+    "--filesystem=xdg-documents",
+    "--filesystem=xdg-download",
+    "--persist=.dadabot"
+  ],
+  "modules": [
+    {
+      "name": "dadabot",
+      "buildsystem": "simple",
+      "build-commands": [
+        "install -d /app/bin /app/share/doc/dadabot",
+        "install -m 0755 bin/dadabot /app/bin/dadabot",
+        "install -m 0755 bin/dadabot-shim /app/bin/dadabot-shim",
+        "cp -R share/install-scripts /app/share/dadabot/install-scripts",
+        "install -m 0644 README.md /app/share/doc/dadabot/README.md"
+      ],
+      "sources": [
+        {
+          "type": "archive",
+          "url": "https://github.com/dadabot-ai/dadabot/releases/download/v0.1.0-beta.1/dadabot-0.1.0-beta.1-linux-x86_64.tar.gz",
+          "sha256": "REPLACE_WITH_SHA256_FROM_RELEASE"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,93 @@
+# =============================================================================
+# DadaBot — Minisign Key Generation (One-time setup)
+# Run manually via workflow_dispatch to generate signing keys
+# =============================================================================
+name: Generate Minisign Keys
+
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Overwrite existing keys"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    name: Generate Minisign Keys
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install minisign
+        run: |
+          sudo apt-get update && sudo apt-get install -y minisign
+
+      - name: Check existing keys
+        id: check
+        run: |
+          if [ -f "scripts/install/dadabot/release/minisign.pub" ] && [ "${{ github.event.inputs.force }}" != "true" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Keys already exist. Use force=true to regenerate."
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate Keys
+        if: ${{ steps.check.outputs.exists != 'true' }}
+        run: |
+          mkdir -p scripts/install/dadabot/release
+          minisign -G \
+            -p scripts/install/dadabot/release/minisign.pub \
+            -s scripts/install/dadabot/release/minisign.key
+          echo "Keys generated."
+
+      - name: Test Signature
+        if: steps.check.outputs.exists != 'true'
+        run: |
+          echo "test content" > /tmp/test.txt
+          minisign -S -s scripts/install/dadabot/release/minisign.key -m /tmp/test.txt -c "Test"
+          minisign -V -p scripts/install/dadabot/release/minisign.pub -m /tmp/test.txt
+          echo "✅ Signature test passed"
+          rm /tmp/test.txt /tmp/test.txt.sig
+
+      - name: Commit Public Key
+        if: steps.check.outputs.exists != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add scripts/install/dadabot/release/minisign.pub
+          git commit -m "chore: add minisign public key for release signing"
+          git push
+          echo "✅ Public key committed"
+
+      - name: Output Instructions
+        run: |
+          echo ""
+          echo "==========================================="
+          echo "⚠️  ACTION REQUIRED: Add to GitHub Secrets"
+          echo "==========================================="
+          echo ""
+          echo "Go to: Settings > Secrets and variables > Actions > New repository secret"
+          echo ""
+          echo "1. MINISIGN_KEY"
+          echo "   Value: (contents of scripts/install/dadabot/release/minisign.key)"
+          echo ""
+          echo "2. MINISIGN_PASSPHRASE"
+          echo "   Value: (your minisign passphrase, or empty if none)"
+          echo ""
+          echo "3. CF_API_TOKEN (for Cloudflare cache purge)"
+          echo "   Value: (Cloudflare API token with Zone.Cache Purge permission)"
+          echo ""
+          echo "4. CF_ZONE_ID"
+          echo "   Value: (Cloudflare zone ID for dadabot.dev)"
+          echo ""
+          echo "⚠️  NEVER commit minisign.key to the repository!"
+          echo "   It's in .gitignore for security."

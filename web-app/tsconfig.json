@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@agentmesh/busabase-adapter": ["packages/busabase-adapter/src/index.ts"],
+      "@agentmesh/affine-adapter": ["packages/affine-adapter/src/index.ts"],
+      "@agentmesh/proposal-bridge": ["packages/proposal-bridge/src/index.ts"],
+      "@agentmesh/dadabot-cli": ["packages/dadabot-cli/src/index.ts"]
+    }
+  },
+  "include": ["src", "packages/*/src"],
+  "references": [
+    { "path": "./tsconfig.node.json" },
+    { "path": "./packages/busabase-adapter" },
+    { "path": "./packages/affine-adapter" },
+    { "path": "./packages/proposal-bridge" },
+    { "path": "./packages/dadabot-cli" }
+  ]
+}

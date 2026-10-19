@@ -1,0 +1,106 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# Environment / secrets (NEVER commit)
+.env
+.env.local
+.env.*.local
+~/.dadabot/.env
+~/.dadabot/identity.json
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+*.swp
+
+# Agent caches
+.agent-cache/
+.kilo/
+.wrangler/
+.pytest_cache/
+.http-forge/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Test artifacts
+test-output/
+
+# Other workspace clones (not part of dadabot)
+kbizhub-dashboard/
+privseai-trystero/
+find-src/
+
+# Misc noise
+Users/
+__pycache__/
+/airtasker-blocked.png
+
+# One-off experiments / screenshots from earlier sessions
+conftest.py
+database.db
+etoland_*.py
+evidence_writer.py
+forecast_ledger.py
+graph_writer.py
+impact.py
+main.py
+mapper.py
+privseai*.png
+kbizhub*.png
+kbizhub-merged-stage-index.html
+privseai.html
+openwork-home.png
+tmp_edit_test.txt
+commit_msg.txt
+typescript
+typescript-5.7.3/
+typescript-5.7.3.tgz
+test_mapper.py
+test-wasm.js
+test-wasm.patch
+setup-minicpm-bitterbot.py
+fix-401-kilo-auth.sh
+fix-all-bitterbot-issues.sh
+fix-kilo-auth.py
+fix-kilo-auth.sh
+apply-fixes.sh
+apply-tierMux-fixes.sh
+pythia_connector/
+root/
+bitterbot.json.fixed
+bitterbot-stubs/
+
+# Old analysis docs from exploration (kept the canonical ones)
+/CODE-INTEGRITY-REPORT.md
+/INTEGRATION_REVIEW.md
+/LETTA_PRIVSEA_INTEGRATION_ANALYSIS.md
+/LYSTBOT_MUHANAI_INTEGRATION.md
+/MESHTASTIC_INTEGRATION_SYNERGY.md
+/TRYSTERO_MUHANAI_INTEGRATION.md
+/DASHBOARD_MENU_INTEGRATION.md
+/muhanai-data-contribution-plan.md
+/brand-spec.md
+/-o
+
+
+
+

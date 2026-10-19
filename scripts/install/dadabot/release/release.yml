@@ -1,0 +1,305 @@
+# =============================================================================
+# DadaBot — Release pipeline
+# Builds cross-platform binaries, signs them (minisign), publishes to GitHub
+# Releases, and updates the static manifest consumed by install.sh / install.ps1.
+#
+# Triggers:
+#   - tag push: v*.*.*  (stable) / v*.*.*-beta.*  (beta) / v*.*.*-nightly.*
+#   - workflow_dispatch (channel: stable | beta | nightly)
+#   - schedule (nightly, daily 02:00 UTC)
+#
+# Artifacts:
+#   dadabot-<ver>-<os>-<arch>.tar.gz        binary
+#   dadabot-<ver>-<os>-<arch>.tar.gz.sig     minisign signature
+#   dadabot-<ver>-<os>-<arch>.tar.gz.sha256  SHA-256
+#   latest-{stable,beta,nightly}.json        static manifest (gh-pages + CDN)
+# =============================================================================
+name: release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-beta.*"
+      - "v[0-9]+.[0-9]+.[0-9]+-nightly.*"
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "Release channel"
+        required: true
+        default: "stable"
+        type: choice
+        options: [stable, beta, nightly]
+  schedule:
+    - cron: "0 2 * * *"
+
+permissions:
+  contents: write
+  id-token: write
+  pages: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  RUSTFLAGS: "-C strip=symbols -C link-arg=-s"
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. Build binaries on a 7-platform matrix (Linux × 3, macOS × 3, Windows × 1)
+  # ---------------------------------------------------------------------------
+  build:
+    name: build (${{ matrix.os }} / ${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ----- Linux -----
+          - os: ubuntu-22.04
+            arch: x86_64
+            target: x86_64-unknown-linux-gnu
+            archive: tar.gz
+            asset_suffix: linux-x86_64
+          - os: ubuntu-22.04
+            arch: aarch64
+            target: aarch64-unknown-linux-gnu
+            archive: tar.gz
+            asset_suffix: linux-aarch64
+          - os: ubuntu-22.04
+            arch: x86_64
+            target: x86_64-unknown-linux-musl
+            archive: tar.gz
+            asset_suffix: linux-x86_64-musl
+            extra_packages: "musl-tools"
+          # ----- macOS -----
+          - os: macos-14
+            arch: x86_64
+            target: x86_64-apple-darwin
+            archive: tar.gz
+            asset_suffix: macos-x86_64
+          - os: macos-14
+            arch: aarch64
+            target: aarch64-apple-darwin
+            archive: tar.gz
+            asset_suffix: macos-aarch64
+          - os: macos-14
+            arch: universal
+            target: universal-apple-darwin
+            archive: tar.gz
+            asset_suffix: macos-universal
+            universal: true
+          # ----- Windows -----
+          - os: windows-2022
+            arch: x86_64
+            target: x86_64-pc-windows-msvc
+            archive: zip
+            asset_suffix: windows-x86_64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "."
+          shared-key: ${{ matrix.target }}
+
+      - name: Install Linux musl toolchain
+        if: contains(matrix.target, 'musl')
+        run: sudo apt-get install -y musl-tools
+
+      - name: Install macOS deps
+        if: matrix.os == 'macos-14'
+        run: brew install create-dmg
+
+      - name: Build (release profile, stripped)
+        run: |
+          if [ "${{ matrix.universal }}" = "true" ]; then
+            cargo build --release --target x86_64-apple-darwin
+            cargo build --release --target aarch64-apple-darwin
+            mkdir -p target/universal-apple-darwin/release
+            lipo -create \
+              target/x86_64-apple-darwin/release/dadabot \
+              target/aarch64-apple-darwin/release/dadabot \
+              -output target/universal-apple-darwin/release/dadabot
+            BIN=target/universal-apple-darwin/release/dadabot
+          else
+            cargo build --release --target ${{ matrix.target }}
+            BIN=target/${{ matrix.target }}/release/dadabot
+            if [ "${{ matrix.os }}" = "windows-2022" ]; then
+              BIN="${BIN}.exe"
+            fi
+          fi
+          ls -lh "$BIN"
+          echo "BIN_PATH=$BIN" >> "$GITHUB_ENV"
+
+      - name: Bundle runtimes
+        run: |
+          mkdir -p dadabot-bundle/bin dadabot-bundle/share
+          cp "$BIN_PATH" dadabot-bundle/bin/dadabot
+          cp scripts/install/dadabot/dadabot dadabot-bundle/bin/dadabot-shim 2>/dev/null || true
+          cp -R scripts/install/dadabot/release dadabot-bundle/share/install-scripts
+          chmod +x dadabot-bundle/bin/dadabot
+
+      - name: Archive
+        run: |
+          ASSET_NAME="dadabot-${{ github.ref_name }}-${{ matrix.asset_suffix }}"
+          if [ "${{ matrix.archive }}" = "tar.gz" ]; then
+            tar -C dadabot-bundle -czf "${ASSET_NAME}.tar.gz" .
+            echo "ASSET=${ASSET_NAME}.tar.gz" >> "$GITHUB_ENV"
+          else
+            powershell Compress-Archive -Path dadabot-bundle -DestinationPath "${ASSET_NAME}.zip" -Force
+            echo "ASSET=${ASSET_NAME}.zip" >> "$GITHUB_ENV"
+          fi
+          ls -lh "${ASSET}"
+
+      - name: Generate SHA-256
+        run: |
+          if [ "${{ matrix.os }}" = "windows-2022" ]; then
+            certutil -hashfile "${{ env.ASSET }}" SHA256 > "${ASSET}.sha256"
+          else
+            sha256sum "${{ env.ASSET }}" > "${ASSET}.sha256"
+          fi
+
+      - name: Sign with minisign
+        env:
+          MINISIGN_KEY: ${{ secrets.MINISIGN_KEY }}
+          MINISIGN_PASSPHRASE: ${{ secrets.MINISIGN_PASSPHRASE }}
+        run: |
+          echo "$MINISIGN_KEY" > /tmp/minisign.key
+          chmod 600 /tmp/minisign.key
+          echo "$MINISIGN_PASSPHRASE" | minisign -S \
+            -s /tmp/minisign.key \
+            -m "${{ env.ASSET }}" \
+            -c "DadaBot ${{ github.ref_name }} ${{ matrix.asset_suffix }}" \
+            -t "${{ env.ASSET }}"
+          rm -f /tmp/minisign.key
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dadabot-${{ matrix.asset_suffix }}
+          path: |
+            ${{ env.ASSET }}
+            ${{ env.ASSET }}.sha256
+            ${{ env.ASSET }}.sig
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # 2. Aggregate artifacts → latest-{channel}.json → GitHub Release + gh-pages
+  # ---------------------------------------------------------------------------
+  publish:
+    name: publish release & manifest
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/
+
+      - name: Resolve channel
+        id: channel
+        run: |
+          REF="${GITHUB_REF_NAME}"
+          if [[ "$REF" == *-nightly* ]] || [[ "${{ inputs.channel }}" == "nightly" ]]; then
+            CHANNEL="nightly"
+          elif [[ "$REF" == *-beta* ]] || [[ "${{ inputs.channel }}" == "beta" ]]; then
+            CHANNEL="beta"
+          else
+            CHANNEL="stable"
+          fi
+          echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+          echo "version=${REF#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate manifest via local-manifest.ts
+        run: |
+          node --import tsx scripts/install/dadabot/release/local-manifest.ts \
+            --version "${{ steps.channel.outputs.version }}" \
+            --channel  "${{ steps.channel.outputs.channel }}" \
+            --dist     ./dist \
+            --out      "manifests/latest-${{ steps.channel.outputs.channel }}.json"
+
+      - name: Validate JSON
+        run: |
+          node -e "
+            const fs = require('fs');
+            const m = JSON.parse(fs.readFileSync('manifests/latest-${{ steps.channel.outputs.channel }}.json'));
+            if (!m.platforms) throw new Error('missing platforms');
+            const req = ['linux-x86_64','macos-aarch64','windows-x86_64'];
+            for (const p of req) if (!m.platforms[p]) throw new Error('missing ' + p);
+            console.log('Manifest OK: ' + Object.keys(m.platforms).length + ' platforms');
+          "
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ steps.channel.outputs.version }} (${{ steps.channel.outputs.channel }})
+          generate_release_notes: true
+          draft: ${{ steps.channel.outputs.channel != 'stable' }}
+          prerelease: ${{ steps.channel.outputs.channel != 'stable' }}
+          files: |
+            dist/**/dadabot-*.tar.gz
+            dist/**/dadabot-*.zip
+            dist/**/dadabot-*.sha256
+            dist/**/dadabot-*.sig
+
+      - name: Push manifest to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: manifests/
+          destination_path: releases/
+
+      - name: Purge Cloudflare CDN cache
+        if: ${{ steps.channel.outputs.channel == 'stable' }}
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+        run: |
+          if [ -n "$CF_API_TOKEN" ] && [ -n "$CF_ZONE_ID" ]; then
+            curl -X POST \
+              "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/purge_cache" \
+              -H "Authorization: Bearer $CF_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data '{"files":["https://dadabot.dev/releases/latest-stable.json"]}' \
+              | jq .
+          else
+            echo "Cloudflare credentials missing — skipping cache purge"
+          fi
+
+      - name: Summary
+        run: |
+          echo "## DadaBot ${{ steps.channel.outputs.version }} released" >> "$GITHUB_STEP_SUMMARY"
+          echo "Channel: **${{ steps.channel.outputs.channel }}**" >> "$GITHUB_STEP_SUMMARY"
+          echo "Manifest: https://dadabot.dev/releases/latest-${{ steps.channel.outputs.channel }}.json" >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,113 @@
+# =============================================================================
+# DadaBot — Installer Tests CI
+# Runs BATS (install.sh) and Pester (install.ps1) tests on every PR/push
+# =============================================================================
+name: Installer Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/install/dadabot/**"
+  pull_request:
+    paths:
+      - "scripts/install/dadabot/**"
+  workflow_dispatch:
+
+concurrency:
+  group: installer-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # =============================================================================
+  # BATS Tests (Linux/macOS)
+  # =============================================================================
+  bats:
+    name: BATS Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-14]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install BATS
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            sudo apt-get update && sudo apt-get install -y bats
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            brew install bats-core
+          fi
+
+      - name: Run BATS Tests
+        run: |
+          cd scripts/install/dadabot
+          bats test/install.bats --tap
+
+      - name: Upload BATS Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bats-results-${{ matrix.os }}
+          path: |
+            scripts/install/dadabot/test/*.tap
+          retention-days: 7
+
+  # =============================================================================
+  # Pester Tests (Windows)
+  # =============================================================================
+  pester:
+    name: Pester Tests (Windows)
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Pester
+        shell: pwsh
+        run: |
+          Install-Module -Name Pester -Force -Scope CurrentUser -SkipPublisherCheck
+          Import-Module Pester -Force
+
+      - name: Run Pester Tests
+        shell: pwsh
+        run: |
+          cd scripts/install/dadabot
+          Invoke-Pester test/Install.Tests.ps1 -Output Detailed -PassThru
+
+      - name: Upload Pester Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pester-results-windows
+          path: |
+            scripts/install/dadabot/test/*.xml
+          retention-days: 7
+
+  # =============================================================================
+  # Summary
+  # =============================================================================
+  summary:
+    name: Test Summary
+    needs: [bats, pester]
+    runs-on: ubuntu-22.04
+    if: always()
+    steps:
+      - name: Check Results
+        run: |
+          echo "## Installer Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Platform | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| BATS | Ubuntu | ${{ needs.bats.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| BATS | macOS | ${{ needs.bats.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Pester | Windows | ${{ needs.pester.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Fail if any failed
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          echo "❌ Some tests failed"
+          exit 1

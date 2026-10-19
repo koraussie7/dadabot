@@ -1,0 +1,102 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "DadaBot",
+  "version": "0.1.0",
+  "identifier": "dev.dadabot.mobile",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws: wss:;"
+    },
+    "windows": [],
+    "defaultWindow": "main",
+    "mobile": {
+      "orientation": "portrait",
+      "splashscreen": {
+        "android": {
+          "image": "icons/splash-android.png",
+          "backgroundColor": "#1a1a1a"
+        },
+        "ios": {
+          "image": "icons/splash-ios.png",
+          "backgroundColor": "#1a1a1a"
+        }
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "android": {
+      "packageName": "dev.dadabot.mobile",
+      "versionCode": 1,
+      "versionName": "0.1.0",
+      "minSdkVersion": 24,
+      "targetSdkVersion": 34,
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "ACCESS_WIFI_STATE",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_DATA_SYNC",
+        "WAKE_LOCK"
+      ],
+      "usesCleartextTraffic": true
+    },
+    "ios": {
+      "bundleIdentifier": "dev.dadabot.mobile",
+      "version": "0.1.0",
+      "buildNumber": "1",
+      "minimumSystemVersion": "16.0",
+      "deviceCapabilities": ["arm64"],
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        },
+        "NSLocalNetworkUsageDescription": "DadaBot needs local network access for P2P sync",
+        "NSBluetoothPeripheralUsageDescription": "DadaBot uses Bluetooth for peer discovery",
+        "NSMicrophoneUsageDescription": "DadaBot uses microphone for voice input",
+        "NSCameraUsageDescription": "DadaBot uses camera for QR code pairing"
+      }
+    },
+    "mobile": {
+      "android": {
+        "manifestPlaceholders": {
+          "TAURI_SCHEME": "dadabot"
+        }
+      }
+    }
+  },
+  "plugins": {
+    "fs": {
+      "scope": {
+        "allow": ["$APPCONFIG/*", "$APPDATA/*", "$DOWNLOAD/*", "$DOCUMENT/*"]
+      }
+    },
+    "http": {
+      "scope": ["http://localhost:*", "https://*.dadabot.dev", "wss://*.dadabot.dev"]
+    },
+    "shell": {
+      "scope": {
+        "allow": ["dadabot", "dadabot-cli"]
+      }
+    },
+    "notification": {},
+    "local-notification": {},
+    "biometric": {},
+    "clipboard": {},
+    "opener": {}
+  }
+}

@@ -1,0 +1,327 @@
+# =============================================================================
+# DadaBot — Package Manager Submissions
+# Automates PR creation for winget, Homebrew, Flathub, Snap
+# Run manually via workflow_dispatch after each release
+# =============================================================================
+name: Package Manager Submissions
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to submit (e.g., 0.1.0)"
+        required: true
+        type: string
+      channel:
+        description: "Release channel"
+        required: true
+        default: "stable"
+        type: choice
+        options: [stable, beta, nightly]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  # =============================================================================
+  # Winget Submission
+  # =============================================================================
+  winget:
+    name: Submit Winget PR
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate Winget Manifest
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          CHANNEL="${{ github.event.inputs.channel }}"
+          
+          # Create winget manifest directory
+          mkdir -p winget-manifests/d/DadaBot/DadaBot/${VERSION}
+          
+          # Main manifest
+          cat > winget-manifests/d/DadaBot/DadaBot/${VERSION}/DadaBot.DadaBot.yaml << EOF
+PackageIdentifier: DadaBot.DadaBot
+PackageVersion: ${VERSION}
+PackageName: DadaBot
+Publisher: DadaBot Team
+License: MIT
+LicenseUrl: https://github.com/dadabot-ai/dadabot/blob/main/LICENSE
+ShortDescription: Local-first AI Agent OS
+Description: |
+  DadaBot is a local-first AI agent OS that runs entirely on your device.
+  Features: 40+ free AI models (auto-rotate), 249 tools, 34 skills,
+  visual canvas, trading desk, mobile apps, and zero cloud dependencies.
+Tags: ["ai", "agent", "local-first", "privacy", "llm", "tools"]
+InstallerType: zip
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/dadabot-ai/dadabot/releases/download/v${VERSION}/dadabot-${VERSION}-windows-x86_64.zip
+    InstallerSha256: PLACEHOLDER_SHA256
+    Scope: user
+    InstallerSwitches:
+      Silent: /S
+      SilentWithProgress: /S
+ManifestType: singleton
+ManifestVersion: 1.5.0
+EOF
+
+      - name: Create Winget PR
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repo: microsoft/winget-pkgs
+          title: "[DadaBot] v${{ github.event.inputs.version }} (${{ github.event.inputs.channel }})"
+          body: |
+            ## DadaBot v${{ github.event.inputs.version }} (${{ github.event.inputs.channel }})
+            
+            Automated submission from DadaBot release pipeline.
+            
+            **SHA-256**: Will be filled after release artifacts are available.
+            
+            **Installer**: Windows x64 ZIP (NSIS installer inside)
+            
+            **Verification**:
+            - SHA-256 checksums provided in release manifest
+            - Minisign signatures for all artifacts
+            - Auto-updater with signature verification
+            
+            **Source**: https://github.com/dadabot-ai/dadabot/releases/tag/v${{ github.event.inputs.version }}
+          branch: dadaobot-${{ github.event.inputs.version }}
+          commit-message: "feat: Add DadaBot v${{ github.event.inputs.version }}"
+          base: master
+          delete-branch: true
+
+  # =============================================================================
+  # Homebrew Submission
+  # =============================================================================
+  homebrew:
+    name: Submit Homebrew PR
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate Homebrew Formula
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          
+          mkdir -p homebrew-formula
+          
+          cat > homebrew-formula/dadabot.rb << EOF
+class Dadabot < Formula
+  desc "Local-first AI Agent OS"
+  homepage "https://dadabot.dev"
+  url "https://github.com/dadabot-ai/dadabot/releases/download/v${VERSION}/dadabot-${VERSION}-macos-universal.tar.gz"
+  sha256 "PLACEHOLDER_SHA256"
+  license "MIT"
+  version "${VERSION}"
+
+  def install
+    bin.install "bin/dadabot"
+    bin.install "bin/dadabot-shim" if File.exist?("bin/dadabot-shim")
+    share.install "share/install-scripts" if Dir.exist?("share/install-scripts")
+  end
+
+  def caveats
+    <<~EOS
+      DadaBot installed to #{bin}.
+      
+      Quick start:
+        dadabot chat          # Start chatting
+        dadabot doctor        # System check
+        dadabot update        # Auto-update
+      
+      Mobile apps:
+        iOS: App Store (search "DadaBot: Smart Artificial Intelligence")
+        Android: Download APK from GitHub Releases
+    EOS
+  end
+
+  test do
+    assert_match version.to_s, shell_output("#{bin}/dadabot --version")
+  end
+end
+EOF
+
+      - name: Create Homebrew PR
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repo: dadabot/homebrew-tap
+          title: "dadabot ${{ github.event.inputs.version }}"
+          body: |
+            ## DadaBot v${{ github.event.inputs.version }}
+            
+            Automated formula update from release pipeline.
+            
+            **SHA-256**: Will be filled after release.
+            
+            **Installation**:
+            ```bash
+            brew tap dadabot/tap
+            brew install dadabot
+            ```
+          branch: dadaobot-${{ github.event.inputs.version }}
+          commit-message: "dadabot ${{ github.event.inputs.version }}"
+          base: main
+          delete-branch: true
+
+  # =============================================================================
+  # Flathub Submission
+  # =============================================================================
+  flathub:
+    name: Submit Flathub PR
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate Flatpak Manifest
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          
+          mkdir -p flathub-manifest
+          
+          cat > flathub-manifest/flatpak-dadabot.json << EOF
+{
+  "app-id": "dev.dadabot.mobile",
+  "runtime": "org.freedesktop.Platform",
+  "runtime-version": "23.08",
+  "sdk": "org.freedesktop.Sdk",
+  "command": "dadabot",
+  "finish-args": [
+    "--share=network",
+    "--share=ipc",
+    "--socket=wayland",
+    "--socket=x11",
+    "--device=all",
+    "--filesystem=home",
+    "--talk-name=org.freedesktop.Notifications"
+  ],
+  "modules": [
+    {
+      "name": "dadabot",
+      "buildsystem": "simple",
+      "build-commands": [
+        "mkdir -p /app/bin /app/share",
+        "tar -xzf dadabot-${VERSION}-linux-x86_64.tar.gz -C /app",
+        "install -Dm755 dadabot-bundle/bin/dadabot /app/bin/dadabot",
+        "cp -r dadabot-bundle/share/* /app/share/"
+      ],
+      "sources": [
+        {
+          "type": "file",
+          "url": "https://github.com/dadabot-ai/dadabot/releases/download/v${VERSION}/dadabot-${VERSION}-linux-x86_64.tar.gz",
+          "sha256": "PLACEHOLDER_SHA256"
+        }
+      ]
+    }
+  ]
+}
+EOF
+
+      - name: Create Flathub PR
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repo: flathub/flathub
+          title: "dev.dadabot.mobile: v${{ github.event.inputs.version }}"
+          body: |
+            ## DadaBot v${{ github.event.inputs.version }} (Flatpak)
+            
+            Automated Flatpak manifest submission.
+            
+            **SHA-256**: Will be filled after release.
+            
+            **Runtime**: org.freedesktop.Platform 23.08
+            **Architecture**: x86_64
+            
+            **Installation**:
+            ```bash
+            flatpak install flathub dev.dadabot.mobile
+            flatpak run dev.dadabot.mobile
+            ```
+          branch: dadaobot-${{ github.event.inputs.version }}
+          commit-message: "dev.dadabot.mobile: ${{ github.event.inputs.version }}"
+          base: master
+          delete-branch: true
+
+  # =============================================================================
+  # Snap Submission
+  # =============================================================================
+  snap:
+    name: Submit Snap
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate Snapcraft.yaml
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          
+          mkdir -p snap-manifest
+          
+          cat > snap-manifest/snapcraft.yaml << EOF
+name: dadaobot
+version: "${VERSION}"
+summary: Local-first AI Agent OS
+description: |
+  DadaBot is a local-first AI agent OS that runs entirely on your device.
+  Features: 40+ free AI models (auto-rotate), 249 tools, 34 skills,
+  visual canvas, trading desk, mobile apps, and zero cloud dependencies.
+
+grade: stable
+confinement: classic
+base: core22
+
+apps:
+  dadaobot:
+    command: bin/dadabot
+    plugs: [home, network, network-bind]
+
+parts:
+  dadaobot:
+    plugin: dump
+    source: https://github.com/dadabot-ai/dadabot/releases/download/v${VERSION}/dadabot-${VERSION}-linux-x86_64.tar.gz
+    source-checksum: PLACEHOLDER_SHA256
+    organize:
+      dadabot-bundle/bin/dadabot: bin/dadabot
+      dadabot-bundle/share: share/
+    prime: [bin/dadabot, share/]
+EOF
+
+      - name: Create Snap PR
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repo: snapcrafters/snapcraft-dadaobot
+          title: "dadaobot ${{ github.event.inputs.version }}"
+          body: |
+            ## DadaBot v${{ github.event.inputs.version }} (Snap)
+            
+            Automated snapcraft.yaml submission.
+            
+            **SHA-256**: Will be filled after release.
+            
+            **Confinement**: Classic (needs filesystem/network access)
+            **Base**: core22
+            
+            **Build**: `snapcraft`
+            **Upload**: `snapcraft upload --release=stable dadaobot_*.snap`
+          branch: dadaobot-${{ github.event.inputs.version }}
+          commit-message: "dadaobot ${{ github.event.inputs.version }}"
+          base: master
+          delete-branch: true

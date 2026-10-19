@@ -1,0 +1,31 @@
+{
+  "name": "@agentmesh/dadabot-dashboard",
+  "version": "0.1.0",
+  "description": "Dadabot's web console — /inbox, /canvas, /safety pages. Built for drop-in integration into muhanai.com or standalone deployment.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "tsx --test test/*.test.ts",
+    "test:watch": "tsx --test --watch test/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@agentmesh/busabase-adapter": "workspace:*",
+    "@agentmesh/affine-adapter": "workspace:*",
+    "@agentmesh/proposal-bridge": "workspace:*",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.4",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2",
+    "vite": "^6.0.0"
+  }
+}

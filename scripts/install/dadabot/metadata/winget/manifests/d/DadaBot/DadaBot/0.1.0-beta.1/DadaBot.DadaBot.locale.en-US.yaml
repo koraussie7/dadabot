@@ -1,0 +1,30 @@
+PackageIdentifier: DadaBot.DadaBot
+PackageVersion: 0.1.0-beta.1
+PackageLocale: en-US
+Publisher: DadaBot Project
+PackageName: DadaBot
+License: MIT
+ShortDescription: Local-first AI Agent OS — multi-model router, human-in-the-loop safety, block canvas
+Description: |
+  DadaBot is a local-first AI Agent OS that integrates:
+   - 44 free models via sam-tools (no API key required)
+   - 186 tools across the sam-tools catalog
+   - Human-in-the-loop safety via busabase-adapter (3-tier permissions)
+   - Block-based visual canvas via BlockSuite-compatible API
+   - 5-stage safety pipeline: ingest → decide → submit → await → complete
+
+  Install with `winget install DadaBot.DadaBot` or one-liner:
+    irm https://dadabot.dev/install.ps1 | iex
+
+PublisherUrl: https://dadabot.dev
+PublisherSupportUrl: https://github.com/dadabot-ai/dadabot/issues
+PrivacyUrl: https://dadabot.dev/privacy
+Author: DadaBot Project
+Moniker: dadabot
+Tags:
+  - ai-agent
+  - cli
+  - human-in-the-loop
+  - block-canvas
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

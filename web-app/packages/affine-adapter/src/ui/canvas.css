@@ -1,0 +1,103 @@
+.ddb-canvas {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--ddb-canvas-bg, #fafaf9);
+  border-radius: 12px;
+  min-height: 320px;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+
+.ddb-canvas__empty {
+  text-align: center;
+  color: #737373;
+  padding: 64px 0;
+}
+
+.ddb-card {
+  background: white;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  padding: 14px 18px;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    transform 80ms ease;
+}
+.ddb-card:hover {
+  border-color: #d4d4d4;
+  transform: translateY(-1px);
+}
+
+.ddb-card--ai-message {
+  border-left: 4px solid #6366f1;
+}
+.ddb-card--human-note {
+  border-left: 4px solid #facc15;
+}
+.ddb-card--code-snippet {
+  border-left: 4px solid #10b981;
+}
+
+.ddb-card header {
+  font-size: 12px;
+  color: #737373;
+  margin-bottom: 6px;
+}
+
+.ddb-card pre {
+  background: #f5f5f4;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  overflow-x: auto;
+  margin: 6px 0 0;
+}
+
+.ddb-card__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.ddb-card__actions button {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #d4d4d4;
+  background: white;
+  cursor: pointer;
+}
+.ddb-card__actions button:first-child {
+  color: #166534;
+  border-color: #86efac;
+}
+.ddb-card__actions button:last-child {
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+
+.ddb-dock {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  background: #f5f5f4;
+  border-radius: 8px;
+  border: 1px dashed #d4d4d4;
+}
+.ddb-dock button {
+  font-size: 13px;
+  padding: 6px 12px;
+  border: 1px solid #d4d4d4;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.ddb-dock button:hover {
+  background: #fafaf9;
+}

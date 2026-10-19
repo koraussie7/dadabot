@@ -1,0 +1,39 @@
+{
+  "name": "@agentmesh/proposal-bridge",
+  "version": "0.1.0",
+  "description": "Bridges free-model proposals (sam-tools) into human-in-the-loop ChangeRequests (busabase-adapter) and posts them as canvas blocks (affine-adapter). The single integration point of Dadabot's safety pipeline.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./pipeline": "./src/pipeline.ts",
+    "./executor": "./src/executor.ts",
+    "./synopsis": "./src/synopsis.ts"
+  },
+  "scripts": {
+    "test": "tsx --test test/*.test.ts",
+    "test:watch": "tsx --test --watch test/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "agentmesh",
+    "dadabot",
+    "human-in-the-loop",
+    "change-request",
+    "busabase-adapter",
+    "affine-adapter",
+    "ai-safety",
+    "approval-pipeline"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@agentmesh/busabase-adapter": "workspace:*",
+    "@agentmesh/affine-adapter": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.4",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2"
+  }
+}

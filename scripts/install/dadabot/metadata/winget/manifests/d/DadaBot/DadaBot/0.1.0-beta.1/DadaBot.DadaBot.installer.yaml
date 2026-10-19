@@ -1,0 +1,17 @@
+PackageIdentifier: DadaBot.DadaBot
+PackageVersion: 0.1.0-beta.1
+PackageLocale: en-US
+InstallerType: zip
+InstallModes:
+  - silent
+  - interactive
+UpgradeBehavior: install
+Commands:
+  - Command: powershell
+    Argument: /NoProfile -ExecutionPolicy Bypass -Command "irm 'https://dadabot.dev/install.ps1' | iex"
+FileExtensions:
+  - .dadabot
+  - .ddb
+PackageLocale: en-US
+ManifestType: installer
+ManifestVersion: 1.6.0

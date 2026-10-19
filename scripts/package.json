@@ -1,0 +1,24 @@
+{
+  "name": "@dadabot/y-websocket-server",
+  "version": "0.1.0",
+  "description": "Y.js WebSocket sync server for DadaBot",
+  "type": "module",
+  "main": "y-websocket-server.js",
+  "scripts": {
+    "start": "node y-websocket-server.js",
+    "dev": "node --watch y-websocket-server.js",
+    "docker:build": "docker build -t dadabot/y-sync .",
+    "docker:run": "docker run -p 1234:1234 dadabot/y-sync",
+    "fly:deploy": "flyctl deploy --config fly.toml"
+  },
+  "dependencies": {
+    "ws": "^8.16.0",
+    "yjs": "^13.6.0",
+    "y-websocket": "^1.5.0",
+    "y-protocols": "^1.0.6"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# =============================================================================
+# dadabot CLI 셔
+#   - PATH에 설치되어 `dadabot <subcmd>` 호출 시 이 스크립트가 실행됨
+#   - 실제 바이너리 호출 또는 첫 부팅 가이드 출력
+# =============================================================================
+set -e
+DADABOT_HOME="${DADABOT_HOME:-$HOME/.dadabot}"
+DADABOT_BIN="$DADABOT_HOME/bin/dadabot"
+
+# 첫 부팅 시 안내
+if [ ! -x "$DADABOT_BIN" ]; then
+  cat <<'GUIDE'
+🌱 다다봇(DadaBot)이 아직 설치되지 않았습니다.
+
+  설치:
+    curl -fsSL https://dadabot.dev/install.sh | bash
+
+  설치 후 다음 명령으로 다시 시도:
+    dadabot --help
+GUIDE
+  exit 1
+fi
+
+case "${1:-}" in
+  --version|-v) "$DADABOT_BIN" --version ;;
+  --help|-h|"") "$DADABOT_BIN" --help ;;
+  *) exec "$DADABOT_BIN" "$@" ;;
+esac

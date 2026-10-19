@@ -1,0 +1,252 @@
+# =============================================================================
+# DadaBot — Core CI Pipeline
+# Runs on every push/PR to main branch
+# =============================================================================
+name: Core CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: core-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # =============================================================================
+  # TypeScript Typecheck
+  # =============================================================================
+  typecheck:
+    name: TypeScript Typecheck
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: |
+          # Install root deps
+          pnpm install --frozen-lockfile
+          
+          # Install web app deps
+          cd web-app && pnpm install --frozen-lockfile
+
+      - name: Typecheck core packages
+        run: |
+          cd /Users/brianyeon/CodeGPT/integration-finalize
+          for pkg in packages/*/; do
+            if [ -f "$pkg/tsconfig.json" ]; then
+              echo "Checking $(basename $pkg)..."
+              cd "$pkg" && npx tsc --noEmit
+            fi
+          done
+
+      - name: Typecheck web-app
+        run: |
+          cd web-app && npx tsc --noEmit
+
+      - name: Typecheck Tauri mobile
+        run: |
+          cd web-app/tauri-mobile && npx tsc --noEmit
+
+  # =============================================================================
+  # Unit Tests
+  # =============================================================================
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: |
+          pnpm install --frozen-lockfile
+
+      - name: Run core tests (67/67)
+        run: |
+          ./test-all.sh
+
+  # =============================================================================
+  # Lint / Format Check
+  # =============================================================================
+  lint:
+    name: Lint / Format
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check formatting (Prettier)
+        run: |
+          npx prettier --check "**/*.{ts,tsx,json,md,yml,yaml}" --ignore-path .gitignore
+
+      - name: Check lint (ESLint)
+        run: |
+          npx eslint . --ext .ts,.tsx --ignore-pattern node_modules --ignore-pattern dist
+
+  # =============================================================================
+  # Web App Build
+  # =============================================================================
+  build-web:
+    name: Build Web App
+    runs-on: ubuntu-22.04
+    needs: [typecheck, test, lint]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: |
+          cd web-app && pnpm install --frozen-lockfile
+
+      - name: Build
+        run: |
+          cd web-app && pnpm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: web-app/dist
+          retention-days: 7
+
+  # =============================================================================
+  # Tauri Mobile Build (triggered on tags)
+  # =============================================================================
+  tauri-mobile:
+    name: Tauri Mobile Build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    needs: [typecheck, test, lint]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 34
+          ndk-version: r26c
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "web-app/tauri-mobile/src-tauri"
+
+      - name: Install deps & build Android
+        run: |
+          cd web-app/tauri-mobile
+          pnpm install --frozen-lockfile
+          pnpm run tauri:android build
+
+      - name: Upload Android artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dadabot-android
+          path: |
+            web-app/tauri-mobile/src-tauri/gen/android/app/build/outputs/**/*.apk
+            web-app/tauri-mobile/src-tauri/gen/android/app/build/outputs/**/*.aab
+          retention-days: 30
+
+  # =============================================================================
+  # Summary
+  # =============================================================================
+  summary:
+    name: CI Summary
+    needs: [typecheck, test, lint, build-web]
+    if: always()
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Summary
+        run: |
+          echo "## Core CI Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Typecheck | ${{ needs.typecheck.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Tests (67/67) | ${{ needs.test.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Lint | ${{ needs.lint.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build Web | ${{ needs.build-web.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Fail if any failed
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          echo "❌ Some CI jobs failed"
+          exit 1
