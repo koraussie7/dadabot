@@ -748,29 +748,42 @@ references 자체가 불필요.
 | `apps/dadabot-dashboard/vite.config.ts` | 그대로 (`base: '/'` — bot.muhanai.com 루트 호스팅 가정) |
 | `HANDOFF_NEXT_AGENT.md` §20 | 본 섹션 — 운영팀 배포 가이드 |
 
+### DNS 전자화 결과 (운영팀 · Cloudflare)
+
+Cloudflare DNS 테이블:
+- `*.muhanai.com` A 185.55.240.110 Proxied (**와일드카드 있음**)
+- `api/blog/chat/dadabot/matrix.muhanai.com` 모두 동일한 패턴
+
+→ `bot.muhanai.com`은 별도 DNS 작업 **불필요** (와일드카드가 자동 처리).
+표준 명시적 추가도 권장되지만 작동 자체는 즉시 됨.
+
 ### 운영팀이 해야 하는 일 (코드만으로 불가능)
 
-1. **DNS**
-   - `bot.muhanai.com` A 레코드 → muhanai 호스팅 서버 IP
-   - 또는 CNAME → 기존 muhanai.com 호스트
+1. **Cloudflare DNS 레코드** (선택)
+   - 와일드카드 `*.muhanai.com`이 이미 있어서 자동 동작
+   - 명시적 표준화를 원하면 `bot.muhanai.com` A 185.55.240.110 Proxied 추가
 
-2. **TLS**
-   - Let's Encrypt 인증서 발급 (certbot)
-   - Nginx/Apache에 SSL 설정
+2. **Origin 서버 (185.55.240.110)**
+   - SNI 가상 호스트: `bot.muhanai.com`
+   - nginx 예시: `server { server_name bot.muhanai.com; root /var/www/bot.muhanai.com/; }`
+   - docroot에 `apps/dadabot-dashboard/dist/` 복사
+   - Let's Encrypt 인증서 (또는 Cloudflare Origin Cert)
 
-3. **정적 파일 배포**
-   - `apps/dadabot-dashboard/dist/`를 `bot.muhanai.com` docroot에 복사
-   - 또는 Nginx location `/` → `apps/dadabot-dashboard/dist/`
-   - manifest.webmanifest, sw.js, icons/ 모두 포함 (vite build 결과물에 자동 포함됨)
+3. **Cloudflare SSL/TLS 모드**
+   - **Full (strict)** 권장 (Origin이 Let's Encrypt 사용 시)
+   - Full: Cloudflare Origin Cert 사용 시
 
-4. **백엔드 라우트** (muhanai.com 운영팀 백엔드)
-   - `/api/dadabot/ping` 엔드포인트 추가 (이미 web-app/server/router.ts에 정의됨)
-   - 이 라우트는 web-app 서버에서 호스팅되며, bot.muhanai.com과 같은 origin이 아닐 수 있음
-   - CORS 설정 필요: `Access-Control-Allow-Origin: https://bot.muhanai.com`
+4. **Cloudflare Cache Rules** (선택)
+   - `bot.muhanai.com/*` → Edge Cache TTL: 1 hour, Cache Level: Standard
+   - `bot.muhanai.com/sw.js` → Bypass cache (service worker 갱신 충돌 방지)
+   - `bot.muhanai.com/manifest.webmanifest` → Cache: 1 hour
 
-5. **CI/CD (선택)**
-   - GitHub Actions로 `apps/dadabot-dashboard/dist`를 bot.muhanai.com 서버에 rsync/scp
-   - 또는 rsync + ssh deploy key
+5. **백엔드 CORS** (api.muhanai.com 운영)
+   - `Access-Control-Allow-Origin: https://bot.muhanai.com`
+   - `Access-Control-Allow-Credentials: true` (credentials 포함 시)
+
+6. **CI/CD 자동 배포** (선택)
+   - GitHub Actions: tag push 시 `apps/dadabot-dashboard/dist` 빌드 → rsync over SSH → origin 서버
 
 ### 검증
 
