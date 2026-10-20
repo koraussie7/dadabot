@@ -5,6 +5,23 @@ import { createInbox, createChangeRequest, applyDecision, createMemoryAuditLogge
 import { runPipeline } from '@agentmesh/proposal-bridge'
 import { createWorkspace, DADABOT_SCHEMAS } from '@agentmesh/affine-adapter'
 
+// Small style helper for the NavBar download buttons. Each OS button gets
+// its own accent color so they read as a primary action group.
+function downloadBtnStyle(accent: string): React.CSSProperties {
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '0.35rem 0.75rem',
+    color: accent,
+    border: '1px solid ' + accent,
+    borderRadius: '6px',
+    textDecoration: 'none',
+    fontSize: '0.8rem',
+    fontWeight: 600,
+    background: 'transparent',
+  }
+}
+
 function NavBar() {
   const location = useLocation()
   return (
@@ -29,6 +46,39 @@ function NavBar() {
         DadaBot
         <span style={{ fontSize: '0.65rem', color: '#888', border: '1px solid #06b6d4', borderRadius: '4px', padding: '0.05rem 0.3rem' }}>NEW</span>
       </a>
+      {/* Dadabot client download buttons. URLs go through the GitHub Releases
+          "latest" page so the version is always current; once the user lands
+          there they pick the platform-specific asset. */}
+      <a
+        href="https://github.com/koraussie7/dadabot/releases/latest"
+        target="_blank"
+        rel="noopener noreferrer"
+        download
+        style={downloadBtnStyle('#06b6d4')}
+        title="Download dadabot-cli for macOS (universal)"
+      >
+        macOS
+      </a>
+      <a
+        href="https://github.com/koraussie7/dadabot/releases/latest"
+        target="_blank"
+        rel="noopener noreferrer"
+        download
+        style={downloadBtnStyle('#a78bfa')}
+        title="Download dadabot-cli for Windows (x86_64)"
+      >
+        Windows
+      </a>
+      <a
+        href="https://github.com/koraussie7/dadabot/releases/latest"
+        target="_blank"
+        rel="noopener noreferrer"
+        download
+        style={downloadBtnStyle('#34d399')}
+        title="Download dadabot-cli for Linux (x86_64)"
+      >
+        Linux
+      </a>
     </nav>
   )
 }
@@ -44,8 +94,10 @@ function ConsolePage() {
     e.preventDefault()
     if (!input.trim()) return
 
+    const nextProposalId = proposalId + 1
+    setProposalId(nextProposalId)
     const proposal = {
-      id: `prop-${++proposalId}`,
+      id: `prop-${nextProposalId}`,
       kind: 'file_edit' as const,
       files: [{ path: 'example.txt', content: input }],
       confidence: 0.8,
@@ -193,16 +245,6 @@ function CanvasPage() {
   )
 }
 
-function NavBar() {
-  const location = useLocation()
-  return (
-    <nav style={{ padding: '1rem', borderBottom: '1px solid #333', display: 'flex', gap: '1rem' }}>
-      <Link to="/console" style={{ color: location.pathname === '/console' ? '#61dafb' : '#fff' }}>Console</Link>
-      <Link to="/inbox" style={{ color: location.pathname === '/inbox' ? '#61dafb' : '#fff' }}>Inbox</Link>
-      <Link to="/canvas" style={{ color: location.pathname === '/canvas' ? '#61dafb' : '#fff' }}>Canvas</Link>
-    </nav>
-  )
-}
 
 function App() {
   return (
