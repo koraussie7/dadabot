@@ -16,9 +16,10 @@ IFS=$'\n\t'
 # ----- Defaults --------------------------------------------------------------
 DADABOT_VERSION="${DADABOT_VERSION:-latest}"
 DADABOT_CHANNEL="${DADABOT_CHANNEL:-stable}"
-# dadabot.dev 도메인이 부재하므로 기본값은 GitHub raw mirror로 둡니다.
+# dadabot.dev 도메인 부재(NXDOMAIN) -> 110 서버의 dadabot.muhanai.com으로 자체 호스팅.
 # muhanai.com 운영팀이 도메인을 복구하면 default를 다시 dadabot.dev로 되돌리세요.
-DADABOT_BASE_URL="${DADABOT_BASE_URL:-https://raw.githubusercontent.com/koraussie7/dadabot/main}"
+DADABOT_BASE_URL="${DADABOT_BASE_URL:-https://dadabot.muhanai.com}"
+# 레거시 dadabot-ai/dadabot은 placeholder. 실제 repo: koraussie7/dadabot.
 DADABOT_API_URL="${DADABOT_API_URL:-https://api.github.com/repos/koraussie7/dadabot/releases}"
 DADABOT_HOME="${DADABOT_HOME:-$HOME/.dadabot}"
 DADABOT_BIN_DIR="$DADABOT_HOME/bin"
