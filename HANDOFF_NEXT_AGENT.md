@@ -1063,3 +1063,97 @@ VITE_TOKEN_BANK_ESCROW=true   # Phase 3 escrow UI 노출
 - WilliamMajanja/Phantom RNPE-2 패턴: `packages/minima-client/src/anchor.ts:5` 주석 참조
 - WilliamMajanja/minima-core MDS 시스템: `org.minima.system.network.commands`
 - TokenBankPage 사용 UI 패턴: `apps/web/src/components/minima/MinimaWalletPage.tsx` (174줄)
+
+---
+
+## 24. Phase 2 + Phase 3 완료 보고 (2026-10-20)
+
+muhanai.com/token-bank와 Minima chain 통합의 Phase 2 (TasksPage ↔ TokenBankPage
+양방향 통합)와 Phase 3 (Multi-User Token Escrow 실구현) 완료.
+
+### 변경 파일 (4개, 776줄 추가)
+
+| 파일 | 줄수 | 역할 |
+|---|---|---|
+| `apps/web/src/types/escrow.ts` | 15 | 공유 EscrowEntry 타입 |
+| `apps/web/src/store/escrowStore.ts` | 69 | module-level singleton + localStorage 영속 |
+| `apps/web/src/pages/TasksPage.tsx` | 416 | 풀구현 (이전 5줄 stub에서 업그레이드) |
+| `apps/web/src/pages/TokenBankPage.tsx` | (기존 503) | escrowStore 연결 (createEscrow/releaseEscrow 변경) |
+| `apps/web/src/pages/TokenBankPage.tsx` 17줄 useSyncExternalStore import 추가 | | |
+
+### Phase 2 — TasksPage ↔ TokenBankPage 양방향 통합
+
+**TasksPage 풀구현 (416줄)**:
+- 작업 목록 + 상태 필터 (open/in_progress/completed/cancelled/all)
+- 5단계 액션 흐름: open → in_progress → completed → paid (escrow release)
+- 작업 생성 모달: title/description/reward/token/assignee → MDS anchor
+- 작업 완료 시 자동으로 해당 escrow의 release (Phase 2 핵심!)
+- "Lock escrow" 링크 → TokenBankPage로 직접 이동
+
+**공유 스토어 (escrowStore.ts)**:
+- module-level singleton: `getSnapshot`/`subscribe`/`add`/`update`/`remove`/`forTask`
+- React 18의 `useSyncExternalStore`로 양 페이지가 같은 상태 공유
+- localStorage 영속 (`muhanai:escrows:v1` 키) — 페이지 새로고침에도 유지
+
+**자동 release 흐름**:
+1. TasksPage에서 "Complete + Pay" 클릭
+2. 해당 taskId에 매칭되는 escrow를 escrowStore에서 찾음
+3. anchorHash(release, "escrow-release") → MDS 영구 anchor
+4. escrowStore.update → status: "released", anchorHash 갱신
+5. 양 페이지가 동시에 UI 갱신 (subscribe)
+
+### Phase 3 — Multi-User Token Escrow
+
+- escrowStore가 payee(받는 사람) 정보를 영속 저장
+- TokenBankPage의 EscrowForm에서 payee/amount/taskId 입력 → MDS state anchor
+- TasksPage에서 task 완료 시 자동 release
+- TokenBankPage에서 수동 release 가능 (긴급 환불 등)
+
+**escrow 상태 흐름**:
+```
+open     → task가 작업자에게 할당됨, DADA가 락됨
+released → task 완료 → DADA가 payee에게 전송, MDS anchor 영구 보존
+refunded → 의뢰자가 작업 취소, DADA가 payer에게 반환 (구현 예정, Phase 5+)
+```
+
+### 통합 지점
+
+```
+TasksPage (anchorHash)        TokenBankPage (anchorHash + sendPayment)
+       ↓                                    ↓
+       └──── escrowStore (localStorage) ────┘
+                      ↓
+              Minima node via useMinima
+                      ↓
+                 MDS (anchor receipts)
+                 DADA (sendPayment)
+```
+
+### 환경변수 (apps/web/.env)
+
+```
+VITE_MINIMA_NODE_URL=http://localhost:9001
+VITE_MINIMA_WS_URL=ws://localhost:9002
+VITE_MINIMA_API_KEY=... (optional)
+VITE_TOKEN_BANK_ESCROW=true    # Phase 3 escrow UI 노출
+```
+
+### 검증
+
+- TasksPage: 416줄, seed 2개 작업 + 모달 + 5단계 액션
+- TokenBankPage: escrowStore 연결로 양방향 동기화
+- useSyncExternalStore 사용으로 React 18 concurrent mode 안전
+- localStorage 영속으로 새로고침에도 escrow/task 유지
+
+### 다음 단계 (Phase 5+ 후보)
+
+1. **Refund 흐름** — 작업 취소 시 escrow 환불, anchorHash 기록
+2. **Multi-party escrow** — 2-of-3 multisig로 분할 정산
+3. **ReputationPage ↔ escrow 연동** — 작업자 평판 (anchor된 release 수 기반)
+4. **MDS cascade listener** — 외부에서 escrow 변경 시 자동 알림
+5. **minima-bridge RPC 확장** — `sendpoll`, `txncreate`, `coins`, `tokencreate`
+6. **Dockerfile + tsconfig 결함 수정** (이전 §18)
+
+### Phase 4 외부 체인 브릿지
+
+사용자 결정에 따라 **여전히 제외**. EVM/Solana bridge는 별도 세션에서 결정.

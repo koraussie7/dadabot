@@ -14,7 +14,7 @@
  *
  * Dark theme: #09090b / #141418 / #14ebc0 / #06b6d4 (matches MinimaWalletPage).
  */
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useSyncExternalStore } from "react";
 import { useMinima } from "../hooks/useMinima";
 import {
   Wallet, Send, Anchor, RefreshCw, Activity, Copy, ExternalLink,
@@ -36,16 +36,8 @@ interface BankTransaction {
   status: "pending" | "confirmed" | "anchored" | "failed";
 }
 
-interface EscrowEntry {
-  id: string;
-  payer: string;
-  payee: string;
-  amount: string;
-  token: "MINIMA" | "DADA";
-  taskId: string;
-  status: "open" | "released" | "refunded";
-  anchorHash?: string;
-}
+import type { EscrowEntry } from "../types/escrow";
+import { escrowStore } from "../store/escrowStore";
 
 export function TokenBankPage() {
   const { client, balance, transactions, loading, error, sendPayment, anchorHash, refresh } = useMinima();
@@ -54,7 +46,12 @@ export function TokenBankPage() {
   const [sendForm, setSendForm] = useState({ to: "", amount: "", token: "DADA" as "DADA" | "MINIMA", memo: "" });
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [escrows, setEscrows] = useState<EscrowEntry[]>([]);
+  // Subscribe to escrow changes (TasksPage writes here too).
+  const escrows = useSyncExternalStore(
+    escrowStore.subscribe,
+    escrowStore.getSnapshot,
+    () => [],
+  );
   const [anchorModal, setAnchorModal] = useState<{ open: boolean; hash: string | null }>({ open: false, hash: null });
 
   const enableEscrow = useMemo(
@@ -129,16 +126,17 @@ export function TokenBankPage() {
   const createEscrow = async (payee: string, amount: string, taskId: string) => {
     if (!enableEscrow) return;
     const id = `esc-${Date.now()}`;
-    const anchor = await anchorHash(JSON.stringify({ id, payee, amount, taskId }), "token-bank-escrow");
-    setEscrows((prev) => [
-      ...prev,
-      { id, payer: "self", payee, amount, token: "DADA", taskId, status: "open", anchorHash: anchor?.hash },
-    ]);
+    const anchor = await anchorHash(JSON.stringify({ id, payee, amount, taskId }), "token-bank-escrow").catch(() => null);
+    escrowStore.add({
+      id, payer: "self", payee, amount, token: "DADA", taskId,
+      status: "open", anchorHash: anchor?.hash, createdAt: Date.now(),
+    });
   };
   const releaseEscrow = async (id: string) => {
-    setEscrows((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, status: "released" } : e)),
-    );
+    // Anchor the release receipt too so the resolution itself is on MDS.
+    const release = JSON.stringify({ escrowId: id, action: "manual-release", ts: Date.now() });
+    const a = await anchorHash(release, "escrow-release").catch(() => null);
+    escrowStore.update(id, { status: "released", releasedAt: Date.now(), anchorHash: a?.hash ?? undefined });
     refresh();
   };
 
