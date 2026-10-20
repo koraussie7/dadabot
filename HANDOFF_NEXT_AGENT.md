@@ -875,3 +875,109 @@ minima-core와 minima-client는 **완전히 다른 계층**:
 - [src/org/minima/Minima.java](https://raw.githubusercontent.com/WilliamMajanja/minima-core/main/src/org/minima/Minima.java)
 - [src/org/minima/system/Main.java](https://raw.githubusercontent.com/WilliamMajanja/minima-core/main/src/org/minima/system/Main.java)
 - [src/org/minima/system/commands](https://github.com/WilliamMajanja/minima-core/tree/main/src/org/minima/system/commands)
+
+---
+
+## 22. muhanai.com의 minima 통합도 평가 (2026-10-20)
+
+muhanai.com에 Minima가 어디까지 통합돼있는지 3가지 축으로 정량 분석.
+
+### 요약
+
+| 축 | 통합도 | 비고 |
+|---|---|---|
+| **백엔드 클라이언트** | ★★★★★ 5/5 | RPC 12개 메서드, Anchor 5개 메서드, MDS wrapper, 29개 테스트 pass |
+| **UI 라우팅** | ★★☆☆☆ 2/5 | 42 lazy pages 중 4개만 Minima 전용 (9.5%) |
+| **프로덕션 빌드** | ★★☆☆☆ 2/5 | dist-snapshot에 MDS 1회, DADA 8회 사용 |
+| **인프라** | ★★★☆☆ 3/5 | Docker/compose/conf 4개 파일, e2e 테스트 1개 |
+| **외부 의존성** | ★☆☆☆☆ 1/5 | WilliamMajanja/minima-core 직접 의존 없음 |
+
+**종합: 약 50% (기능 인프라 완비, UI 노출 부족)**
+
+### 1. 백엔드 클라이언트 (100% — 5/5)
+
+루트 `packages/minima-client/` 풀구현 (5개 모듈):
+
+| 파일 | 줄수 | 역할 |
+|---|---|---|
+| `src/index.ts` | 8 | 엔트리포인트 |
+| `src/anchor.ts` | 187 | AnchorClient — Phantom RNPE-2 패턴 MDS anchor |
+| `src/mds.ts` | 122 | MDS wrapper (command/file port) |
+| `src/rpc.ts` | 160 | JSON-RPC 클라이언트, 12개 명령어 (send/txn/coins 등) |
+| `src/dada.ts` | 191 | DADA 토큰 클라이언트 |
+
+테스트:
+- `minima-client/test/`: **15/15 pass** (anchor 5개, MDS 5개, RPC 5개)
+- `minima-bridge/test/`: **14/14 pass** (어댑터 + mock)
+
+**Phantom RNPE-2 패턴**: `MDS.create({ script, amount: 0.001, state: [address, cid, ns, time, size, path] })` 형태로 content hash anchor.
+
+### 2. UI 라우팅 (10% — 2/5)
+
+`minima-integration/apps/web/src/App.tsx` 42 lazy pages:
+
+| 페이지 | import 경로 | 사용자 노출 |
+|---|---|---|
+| `MinimaWalletPage` | `./components/minima/MinimaWalletPage` | ✓ |
+| `MinimaAnchorPage` | `./components/minima/MinimaAnchorPage` | ✓ |
+| `MinimaNodeStatusPage` | `./components/minima/MinimaNodeStatus` | ✓ |
+| `AgentMemoryPage` | `./components/minima/AgentMemoryPage` | ✓ |
+
+→ **Minima 전용 페이지는 42개 중 4개 (9.5%)**. 나머지 38 페이지는 일반 AI/에이전트/마켓 페이지로 minima와 무관.
+
+`useMinima.ts` 훅 1개 제공 (`@agentmesh/minima-client` import).
+환경변수: `VITE_MINIMA_NODE_URL`, `VITE_MINIMA_WS_URL`, `VITE_MINIMA_API_KEY`.
+
+### 3. 프로덕션 빌드 (dist-snapshot/muhanai/20261019)
+
+`grep` 결과 — 클라이언트 번들에 minima 코드 일부 포함:
+
+| 번들 | MDS | DADA |
+|---|---|---|
+| `sipp-worker-impl-232hpCnJ.js` | 1 | - |
+| `index-Q5LUw-st.js` | - | 8 |
+| `DadabotPage-9K3mg07C.js` | - | - |
+
+→ **MDS는 sipp-worker 1번만 사용**, DADA 토큰은 index 번들에 8회 등장.
+**mum (Minima 화폐단위, 0.001)**: 0번 — 사용자에게 안 보임.
+**MINIMA_* 환경변수**: 0번 — 백엔드 origin에만 존재.
+
+### 4. 인프라 (75% — 3/5)
+
+```
+minima-integration/
+├── docker-compose.muhanai.yml   # Minima 노드 + bridge compose
+├── minima/Dockerfile            # Minima 풀노드 컨테이너
+├── config/muhanai-conf.yaml     # Minima genesis config
+└── scripts/e2e-minima.test.js   # end-to-end test
+```
+
+**결함 (이전 무결성 검사에서 발견, 미수정)**:
+- Dockerfile `COPY minima-conf.yaml` — 경로 오류 (Dockerfile은 `./minima/`, 파일은 `./config/`)
+- docker-compose `volumes: ./minima/minidapps/muhanai-anchor` — 빈 디렉터리 가능
+- tsconfig 부재 (`minima-client/tsconfig.json`)
+- tsconfig rootDir 외부 import (`minima-bridge → minima-client`)
+
+### 5. 외부 의존성 (1/5)
+
+- `WilliamMajanja/minima-core` (Java 풀노드) 직접 의존 없음
+- `WilliamMajanja/Phantom` 패턴만 차용 (anchor.ts)
+- 외부 NPM/Maven 아티팩트 없음
+
+### 통합 갭 (사용자에게 보이는 부분)
+
+**현재**: 사용자는 muhanai.com에서 Minima 노드 상태, DADA 토큰 전송, MDS anchor를 볼 수 있으나 **4개 페이지로 제한**.
+
+**빠진 것** (개선 후보):
+1. **메인 페이지에 Minima 신원 카드** (지갑 잔액, DADA 잔액)
+2. **TasksPage / ModelsPage / AgentsPage에서 Minima 자동 결제 옵션** (MicroAnchor 0.001 mum)
+3. **AgentMemoryPage ↔ ChainAnchorPage 양방향 링크** (에이전트 기억이 MDS anchor로 영구 보존)
+4. **설정 페이지에 Minima 노드 URL 관리** (사용자가 자체 노드 운영 시)
+5. **DADA Wallet / Bridge / Send UI 통합** (현재 rpc.ts에는 `send` 메서드만 있음)
+
+### 권장 다음 작업
+
+1. (높음) 메인 페이지에 DADA 잔액 + 노드 상태 헤더 표시
+2. (중간) TasksPage에서 send-payment 옵션 노출
+3. (중간) Dockerfile + tsconfig 결함 수정 (이전 §18/§22)
+4. (낮음) minima RPC 명령어 추가 (`sendpoll`, `txncreate`, `coins`, `tokencreate`)
