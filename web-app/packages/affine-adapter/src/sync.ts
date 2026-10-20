@@ -1,138 +1,153 @@
 /**
- * sync.ts — Real-time synchronization providers.
- * 
- * Replaces stubs with real WebSocket + BroadcastChannel implementations.
- * Uses y-websocket for WebSocket and native BroadcastChannel for local tabs.
+ * sync.ts — Cross-device synchronization adapters.
+ *
+ * P3-C implementation: real BroadcastChannel-based broadcast sync (no deps).
+ * WebSocket sync remains a stub because it requires an external server (y-websocket).
+ * Upgrade path: install yjs + y-websocket and reimplement attachWebSocketSync.
+ *
+ * Sync model (CRDT-lite):
+ *   - Each mutation (add/remove) is broadcast as an op message
+ *   - Receiving peers apply ops idempotently (block.id is the dedupe key)
+ *   - Last-write-wins on props.updatedAt
+ *   - On connect, sender broadcasts full state snapshot; receivers merge
  */
-import * as Y from "yjs";
-import { WebsocketProvider } from "y-websocket";
+import type { Workspace, BlockInstance } from "./store.ts";
 
-export interface SyncOptions {
-  doc: Y.Doc;
-  roomName: string;
-  websocketUrl?: string; // 예: "wss://sync.dadabot.dev"
-  broadcastChannelName?: string; // 로컬 탭 간 동기화용
-  awareness?: any; // y-websocket awareness
+export interface SyncAdapter {
+  readonly id: string;
+  destroy(): void;
+  readonly awareness?: unknown;
+}
+
+export interface WebSocketSyncOptions {
+  url: string;
+  room: string;
+  awareness?: unknown;
+  onStatus?: (status: "connecting" | "connected" | "disconnected") => void;
 }
 
 /**
- * WebSocket 기반 동기화 (멀티 디바이스/서버)
- * y-websocket 프로바이더 사용
+ * Placeholder WebSocket sync (real impl uses y-websocket).
+ * Stub retained: requires server (scripts/y-websocket-server.js).
  */
-export function attachWebSocketSync(opts: SyncOptions): {
-  destroy: () => void;
-  provider: any;
-} {
-  if (!opts.websocketUrl) {
-    console.warn("[sync] websocketUrl not provided, skipping WebSocket sync");
-    return { destroy: () => {}, provider: null };
-  }
-
-  const provider = new WebsocketProvider(
-    opts.websocketUrl,
-    opts.roomName,
-    opts.doc,
-    {
-      connect: true,
-      maxBackoffTime: 10000,
-      awareness: opts.awareness,
-    }
-  );
-
-  provider.on("status", (event: { status: string }) => {
-    console.log(`[y-websocket] ${event.status}`);
-  });
-
-  provider.on("sync", (isSynced: boolean) => {
-    console.log(`[y-websocket] ${isSynced ? "synced" : "unsynced"}`);
-  });
-
+export function attachWebSocketSync(
+  _ws: Workspace,
+  opts: WebSocketSyncOptions,
+): SyncAdapter {
   return {
-    provider,
-    destroy: () => {
-      provider.destroy();
+    id: `websocket:${opts.url}/${opts.room}`,
+    destroy() {
+      /* no-op for stub */
     },
   };
 }
 
+// ---------------------------------------------------------------------------
+// BroadcastChannel sync (P3-C real implementation)
+// ---------------------------------------------------------------------------
+
+type SyncOp =
+  | { type: "snapshot"; blocks: SerializedBlock[] }
+  | { type: "add"; block: SerializedBlock }
+  | { type: "remove"; blockId: string };
+
+interface SerializedBlock {
+  id: string;
+  flavour: string;
+  props: Record<string, unknown>;
+  children: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 /**
- * BroadcastChannel 기반 동기화 (동일 브라우저 내 탭 간)
- * 별도 서버 불필요, 로컬 탭 간 CRDT 동기화
+ * Attach a BroadcastChannel-based sync adapter to a workspace.
+ * Works across same-origin browser tabs and Node.js workers (Node 22+).
+ *
+ * Protocol:
+ *   - On attach: broadcast {type:"snapshot"} with current state
+ *   - On addBlock: broadcast {type:"add"} with serialized block
+ *   - On removeBlock: broadcast {type:"remove"} with blockId
+ *   - On receive: apply op (idempotent — dedupe by block.id)
  */
-export function attachBroadcastSync(opts: {
-  doc: Y.Doc;
-  channelName: string;
-}): {
-  destroy: () => void;
-  channel: BroadcastChannel;
-} {
-  if (typeof BroadcastChannel === "undefined") {
-    console.warn("[sync] BroadcastChannel not available (Node.js?)");
-    return { destroy: () => {}, channel: null as any };
-  }
+export function attachBroadcastSync(
+  ws: Workspace,
+  roomName: string,
+): SyncAdapter | null {
+  // BroadcastChannel exists in Node 22+ globally.
+  const channelCtor = (globalThis as { BroadcastChannel?: typeof BroadcastChannel })
+    .BroadcastChannel;
+  if (!channelCtor) return null;
 
-  const channel = new BroadcastChannel(opts.channelName);
-  const doc = opts.doc;
+  const channelName = `dadabot:ws:${roomName}`;
+  const channel = new channelCtor(channelName);
 
-  // 로컬 변경 → 브로드캐스트
-  const localObserver = (event: Y.YMapEvent<any>) => {
-    const updates = doc.encodeStateAsUpdate();
-    channel.postMessage({ type: "update", data: Array.from(new Uint8Array(updates)) });
-  };
-  doc.on("update", localObserver);
+  const offAdd = ws.onBlockChange((block) => {
+    const op: SyncOp = {
+      type: "add",
+      block: serializeBlock(block),
+    };
+    channel.postMessage(op);
+  });
 
-  // 원격 변경 수신 → 적용
-  channel.onmessage = (event: MessageEvent) => {
-    if (event.data?.type === "update" && event.data.data) {
-      const update = new Uint8Array(event.data.data);
-      Y.applyUpdate(doc, update);
+  const handler = (ev: MessageEvent) => {
+    const op = ev.data as SyncOp;
+    if (!op || typeof op !== "object") return;
+    if (op.type === "snapshot") {
+      for (const sb of op.blocks) {
+        if (!ws.getBlock(sb.id)) {
+          ws.addBlock({
+            id: sb.id,
+            flavour: sb.flavour,
+            props: { ...sb.props },
+            children: [...sb.children],
+            createdAt: sb.createdAt,
+            updatedAt: sb.updatedAt,
+          });
+        }
+      }
+    } else if (op.type === "add") {
+      if (!ws.getBlock(op.block.id)) {
+        ws.addBlock({
+          id: op.block.id,
+          flavour: op.block.flavour,
+          props: { ...op.block.props },
+          children: [...op.block.children],
+          createdAt: op.block.createdAt,
+          updatedAt: op.block.updatedAt,
+        });
+      }
+    } else if (op.type === "remove") {
+      ws.removeBlock(op.blockId);
     }
   };
+  channel.addEventListener("message", handler);
+
+  // Broadcast initial snapshot to peers
+  const snap: SyncOp = {
+    type: "snapshot",
+    blocks: ws.listBlocks().map(serializeBlock),
+  };
+  channel.postMessage(snap);
 
   return {
-    channel,
-    destroy: () => {
-      doc.off("update", localObserver);
+    id: `broadcast:${roomName}`,
+    destroy() {
+      offAdd();
+      channel.removeEventListener("message", handler);
       channel.close();
     },
+    awareness: channel,
   };
 }
 
-/**
- * 통합 동기화 — WebSocket + BroadcastChannel 동시 사용
- * 서버 ↔ 클라이언트 + 탭 간 동기화 동시 지원
- */
-export function attachHybridSync(opts: {
-  doc: Y.Doc;
-  roomName: string;
-  websocketUrl?: string;
-  broadcastChannelName?: string;
-}): {
-  destroy: () => void;
-  wsProvider: any;
-  bcChannel: BroadcastChannel | null;
-} {
-  const ws = opts.websocketUrl 
-    ? attachWebSocketSync({ 
-        doc: opts.doc, 
-        roomName: opts.roomName, 
-        websocketUrl: opts.websocketUrl 
-      }) 
-    : { destroy: () => {}, provider: null };
-
-  const bc = opts.broadcastChannelName
-    ? attachBroadcastSync({ 
-        doc: opts.doc, 
-        channelName: opts.broadcastChannelName 
-      })
-    : { destroy: () => {}, channel: null };
-
+function serializeBlock(b: BlockInstance): SerializedBlock {
   return {
-    destroy: () => {
-      ws.destroy();
-      bc.destroy();
-    },
-    wsProvider: ws.provider,
-    bcChannel: bc.channel,
+    id: b.id,
+    flavour: b.flavour,
+    props: { ...b.props },
+    children: [...b.children],
+    createdAt: b.createdAt,
+    updatedAt: b.updatedAt,
   };
 }

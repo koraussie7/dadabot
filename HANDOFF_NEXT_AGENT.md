@@ -636,3 +636,37 @@ TOTAL: 100 pass, 0 fail
 - `apps/dadabot-dashboard tsc --noEmit` → 0 errors
 - `apps/dadabot-dashboard vite build` → 383.80 kB 번들
 - `packages/dadabot-cli` 테스트 → 22 pass / 0 fail
+
+---
+
+## 18. 옵션 B 진행 중 발견된 추가 결함 (2026-10-20, 미해결)
+
+옵션 B(중복 통합) 진행 중 tsc로 검증한 결과 **새로운 결함**이 발견되어
+이번 커밋 범위 밖으로 분리함.
+
+### 1. `web-app/packages/dadabot-cli/src/update.ts` — Bun 런타임 가정
+- `Bun.spawn`, `Bun.file`, `Bun.write` 등 Bun 전용 API 사용
+- `checkForUpdate`가 154줄과 257줄에서 **중복 export**
+- `currentPath` 변수 미정의 (188~204줄)
+- await가 async 함수 밖에서 사용됨 (104~105줄)
+- 수정 작업: Node.js 호환 버전으로 재작성 필요. `tsc --noEmit` 기준 14개 에러
+
+### 2. `web-app/packages/dadabot-cli/tsconfig.json` — `composite: true`인데 references 없음
+- TypeScript 5.6에서 broken config로 인식되어 web-app 루트의 `tsc --noEmit`이 fail
+- **해결 후보**:
+  - (a) `composite: true` 제거하고 단순 tsconfig로 전환
+  - (b) `references`를 추가하고 `noEmit`을 `emitDeclarationOnly`로 변경
+- 결정 보류 — web-app의 빌드 시스템 의존성 검토 필요
+
+### 3. `web-app/tsconfig.json` — `noEmit: true`인 자식을 composite로 참조 (TS6310)
+- 위 (2)와 연결된 문제. referenced project가 emit을 비활성화하면 안 됨.
+
+### 영향 범위
+- **dadabot-cli는 CLI로서 `tsx src/cli.ts`로 직접 실행하면 동작** (update 명령은 Bun 가정 때문에 깨지지만 그 외 approve/reject/list/status는 OK)
+- **`web-app` 자체의 `tsc --noEmit`은 실패**. web-app의 lint/typecheck CI가 있다면 막힘.
+- **`apps/dadabot-dashboard`는 정상** (vite 383KB 번들 빌드 성공)
+
+### 권장 다음 세션 작업
+1. `update.ts`의 Bun 의존 제거 — node-fetch + child_process 기반으로 재작성
+2. `web-app/packages/*/tsconfig.json`의 composite 설정 정리 (위 2번 결정 (a) 권장)
+3. 위 1, 2 완료 후 `web-app` 루트에서 `tsc --noEmit` 재검증

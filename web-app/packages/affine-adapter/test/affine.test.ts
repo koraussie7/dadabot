@@ -19,6 +19,8 @@ import {
   getSchema,
   createSignal,
   propSignal,
+  createWorkspace,
+  attachBroadcastSync,
 } from "../src/index.ts";
 
 // ---------------------------------------------------------------------------
@@ -281,4 +283,96 @@ test("createBlock: timestamps are ISO strings", () => {
   const b = createBlock(AIMessageSchema, { id: "t1", props: { content: "x" } });
   assert.match(b.createdAt, /^\d{4}-\d{2}-\d{2}T/);
   assert.match(b.updatedAt, /^\d{4}-\d{2}-\d{2}T/);
+});
+
+// ---------------------------------------------------------------------------
+// Sync (P3-C BroadcastChannel)
+// ---------------------------------------------------------------------------
+
+test("sync: attachBroadcastSync returns null when BroadcastChannel unavailable", () => {
+  const ws = createWorkspace({ id: "ws-sync-1", schema: DADABOT_SCHEMAS });
+  // Force-undefine BroadcastChannel to test the null-return path
+  const saved = (globalThis as { BroadcastChannel?: typeof BroadcastChannel }).BroadcastChannel;
+  delete (globalThis as { BroadcastChannel?: typeof BroadcastChannel }).BroadcastChannel;
+  try {
+    const adapter = attachBroadcastSync(ws, "test-room-null");
+    assert.equal(adapter, null);
+  } finally {
+    (globalThis as { BroadcastChannel?: typeof BroadcastChannel }).BroadcastChannel = saved;
+  }
+});
+
+test("sync: attachBroadcastSync returns adapter when supported", () => {
+  const ws = createWorkspace({ id: "ws-sync-2", schema: DADABOT_SCHEMAS });
+  const adapter = attachBroadcastSync(ws, "test-room-attach");
+  assert.ok(adapter !== null, "BroadcastChannel should be available in Node 22+");
+  assert.match(adapter!.id, /^broadcast:test-room-attach$/);
+  adapter!.destroy();
+});
+
+test("sync: two workspaces sync blocks via BroadcastChannel", async () => {
+  const wsA = createWorkspace({ id: "ws-A", schema: DADABOT_SCHEMAS });
+  const wsB = createWorkspace({ id: "ws-B", schema: DADABOT_SCHEMAS });
+  const room = "sync-room-" + Math.random().toString(36).slice(2);
+
+  const adapterA = attachBroadcastSync(wsA, room)!;
+  const adapterB = attachBroadcastSync(wsB, room)!;
+  assert.ok(adapterA && adapterB);
+
+  // Allow snapshot broadcasts to settle
+  await new Promise((r) => setTimeout(r, 10));
+
+  // Add a block to A; expect B to receive via snapshot OR add op
+  const block = createBlock(AIMessageSchema, {
+    id: "synced-block-1",
+    props: { role: "assistant", content: "hello from A" },
+  });
+  wsA.addBlock(block);
+
+  // BroadcastChannel is async; wait a tick for delivery
+  await new Promise((r) => setTimeout(r, 30));
+
+  const received = wsB.getBlock("synced-block-1");
+  assert.ok(received, "B should have received the block from A");
+  assert.equal(received!.flavour, "dadabot:ai-message");
+
+  adapterA.destroy();
+  adapterB.destroy();
+});
+
+test("sync: addBlock idempotent (duplicate id not re-added)", async () => {
+  const wsA = createWorkspace({ id: "ws-idem-A", schema: DADABOT_SCHEMAS });
+  const wsB = createWorkspace({ id: "ws-idem-B", schema: DADABOT_SCHEMAS });
+  const room = "idem-room-" + Math.random().toString(36).slice(2);
+
+  const a = attachBroadcastSync(wsA, room)!;
+  const b = attachBroadcastSync(wsB, room)!;
+  await new Promise((r) => setTimeout(r, 10));
+
+  // Pre-seed B with the same id (so A's add should be a no-op on B)
+  wsB.addBlock(
+    createBlock(AIMessageSchema, {
+      id: "dup-id",
+      props: { role: "assistant", content: "B's version" },
+    }),
+  );
+  await new Promise((r) => setTimeout(r, 10));
+
+  // Now A adds with same id but different content
+  wsA.addBlock(
+    createBlock(AIMessageSchema, {
+      id: "dup-id",
+      props: { role: "assistant", content: "A's version" },
+    }),
+  );
+  await new Promise((r) => setTimeout(r, 30));
+
+  // B should still have its own block (last-write-wins or first-write-wins)
+  const block = wsB.getBlock("dup-id");
+  assert.ok(block, "B's block should remain");
+  // Should NOT have both A's and B's version duplicated
+  assert.equal(wsB.listBlocks().filter((x) => x.id === "dup-id").length, 1);
+
+  a.destroy();
+  b.destroy();
 });

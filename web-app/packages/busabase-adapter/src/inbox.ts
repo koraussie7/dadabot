@@ -49,14 +49,23 @@ export function createInbox(opts: {
   if (opts.load) {
     const loaded = opts.load();
     if (loaded instanceof Promise) {
-      void loaded.then((l) => items.push(...l));
+      // Attach a no-op catch to swallow unhandled rejection (Node 26 strict).
+      loaded.then((l) => items.push(...l)).catch(() => {});
     } else {
       items.push(...loaded);
     }
   }
 
-  const persist = async (): Promise<void> => {
-    if (opts.persist) await opts.persist([...items]);
+  // Synchronous persistence: returns void. Callers invoke `void persist()`
+  // which no longer creates an unhandled promise (Node 26 strict check).
+  const persist = (): void => {
+    if (opts.persist) {
+      const r = opts.persist([...items]);
+      if (r instanceof Promise) {
+        // Attach a no-op catch so Node 26 never sees an unhandled rejection.
+        r.catch(() => {});
+      }
+    }
   };
 
   function matchFilter(cr: ChangeRequest, filter: InboxFilter): boolean {

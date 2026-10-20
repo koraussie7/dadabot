@@ -128,6 +128,14 @@ export function decide(ctx: PolicyContext): PolicyDecision {
   };
 }
 
+/**
+ * Sanitizes shell command arguments to prevent injection.
+ * Only allows alphanumeric, dash, underscore, dot, slash, colon, at-sign.
+ */
+export function sanitizeShellArg(arg: string): string {
+  return arg.replace(/[^a-zA-Z0-9_\-.\/:@]/g, "");
+}
+
 /** Known protected paths that always escalate to critical */
 export const PROTECTED_PATH_PATTERNS = [
   /\.env(\.|$)/,

@@ -1,21 +1,24 @@
 /**
  * store.ts — Headless BlockSuite-style reactive store (Y.js CRDT-backed).
  * 
- * Full Y.Doc + Y.Map implementation for CRDT-based conflict-free sync.
+ * Real implementation uses Y.Doc + Y.Map for CRDT-based conflict-free sync.
  * API is identical to the Map-backed version for seamless upgrade.
  */
 import * as Y from "yjs";
 import { IndexeddbPersistence } from "y-indexeddb";
 import * as awarenessProtocol from "y-protocols/awareness.js";
 import { WebsocketProvider } from "y-websocket";
-import type { BlockSchema, BlockInstance } from "./blocks.js";
+import { type BlockInstance, type BlockSchema } from "./blocks.ts";
+
+export type { BlockInstance };
+export type { BlockSchema };
 
 export interface WorkspaceOptions {
   id: string;
   schema: BlockSchema[];
   persistence?: "memory" | "indexeddb";
-  websocketUrl?: string; // y-websocket 서버 URL (예: "wss://sync.dadabot.dev")
-  awareness?: boolean; // 커서/선택 공유용
+  websocketUrl?: string; // y-websocket server URL (e.g. "wss://sync.dadabot.dev")
+  awareness?: boolean; // cursor/selection sharing
 }
 
 export interface Workspace {
@@ -48,9 +51,6 @@ export interface SerializedBlock {
   updatedAt: string;
 }
 
-/**
- * Y.Map<BlockInstance>를 직렬화 가능한 형태로 변환
- */
 function blockToSerializable(b: BlockInstance): SerializedBlock {
   return {
     id: b.id,
@@ -78,33 +78,40 @@ export function createWorkspace(opts: WorkspaceOptions): Workspace {
   const blocks = ydoc.getMap<BlockInstance>(`${opts.id}:blocks`);
   const schemas = opts.schema;
   const listeners = new Set<(b: BlockInstance) => void>();
-  
-  // Awareness (커서/선택 공유용)
+
+  // Awareness (cursor/selection sharing)
   let awareness: awarenessProtocol.Awareness | undefined;
   if (opts.awareness) {
     awareness = new awarenessProtocol.Awareness(ydoc);
-    awareness.setLocalState({ user: { name: "user", color: "#" + Math.floor(Math.random()*16777215).toString(16) } });
+    awareness.setLocalState({ user: { name: "user", color: "#" + Math.floor(Math.random() * 16777215).toString(16) } });
   }
 
-  // WebSocket 프로바이더 (멀티 디바이스 동기화용)
+  // WebSocket provider (multi-device sync)
   let wsProvider: WebsocketProvider | null = null;
   if (opts.websocketUrl) {
     wsProvider = new WebsocketProvider(opts.websocketUrl, opts.id, ydoc, {
       connect: true,
       maxBackoffTime: 10000,
+      awareness: opts.awareness ? awareness : undefined,
+    });
+    wsProvider.on("status", (event: { status: string }) => {
+      console.log("[y-websocket] " + event.status);
+    });
+    wsProvider.on("sync", (isSynced: boolean) => {
+      console.log("[y-websocket] " + (isSynced ? "synced" : "unsynced"));
     });
     if (opts.awareness) {
       wsProvider.awareness = awareness!;
     }
   }
 
-  // IndexedDB 영속화
+  // IndexedDB persistence
   let indexeddb: IndexeddbPersistence | null = null;
   if (opts.persistence === "indexeddb" && typeof window !== "undefined") {
     indexeddb = new IndexeddbPersistence(opts.id, ydoc);
   }
 
-  // Y.Map 변경 감지 → 리스너 호출
+  // Y.Map change detection -> listener callback
   const notify = (event: Y.YMapEvent<BlockInstance>) => {
     event.changes.keys.forEach((change, key) => {
       if (change.action === "add" || change.action === "update") {
@@ -113,14 +120,14 @@ export function createWorkspace(opts: WorkspaceOptions): Workspace {
           for (const l of listeners) l({ ...block });
         }
       } else if (change.action === "delete") {
-        // 삭제된 블록도 알림 (id만 전달)
+        // Notify deleted block (id only)
         for (const l of listeners) l({ id: key } as BlockInstance);
       }
-    }
+    });
   };
   blocks.observe(notify);
 
-  // Cleanup 함수
+  // Cleanup function
   const destroy = (): void => {
     blocks.unobserve(notify);
     if (wsProvider) {
@@ -166,10 +173,10 @@ export function createWorkspace(opts: WorkspaceOptions): Workspace {
     },
     getBlock(id: string): BlockInstance | undefined {
       const b = blocks.get(id);
-      return b ? { ...b } : undefined;
+      return b ? { ...b, props: { ...b.props } } : undefined;
     },
     listBlocks(): BlockInstance[] {
-      return Array.from(blocks.values()).map(b => ({ ...b }));
+      return Array.from(blocks.values()).map(b => ({ ...b, props: { ...b.props } }));
     },
     onBlockChange(cb: (b: BlockInstance) => void): () => void {
       listeners.add(cb);

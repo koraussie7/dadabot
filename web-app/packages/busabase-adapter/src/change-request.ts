@@ -13,9 +13,9 @@
  * to Dadabot's monorepo + GitHub PR workflow.
  */
 
-import { createHash, randomUUID } from "node:crypto";
 import {
   decide,
+  type Permission,
   type PolicyContext,
   type PolicyDecision,
 } from "./policy.ts";
@@ -129,7 +129,7 @@ export function createChangeRequest(
     decision.permission === "autoMerge" ? "merged" : "open";
 
   return {
-    id: randomUUID(),
+    id: crypto.randomUUID(),
     createdAt: createdAt.toISOString(),
     updatedAt: createdAt.toISOString(),
     expiresAt: expiresAt.toISOString(),
@@ -192,10 +192,23 @@ export function isExpired(cr: ChangeRequest, now: Date = new Date()): boolean {
   return now.getTime() > new Date(cr.expiresAt).getTime();
 }
 
-/** Deterministic short fingerprint for display */
+/** FNV-1a 32-bit deterministic hash (crypto-free, works in Node + browser) */
+function fnv1a32(input: string): number {
+  let hash = 2166136261 >>> 0;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = (hash * 16777619) >>> 0;
+  }
+  return hash >>> 0;
+}
+
+/** Deterministic short fingerprint for display (crypto-free, works in Node + browser) */
 export function fingerprint(cr: ChangeRequest): string {
-  const hash = createHash("sha256")
-    .update(`${cr.id}:${cr.title}:${cr.createdAt}`)
-    .digest("hex");
-  return hash.slice(0, 12);
+  const input = `${cr.id}:${cr.title}:${cr.createdAt}`;
+  const h1 = fnv1a32(input);
+  const h2 = fnv1a32(input + ":v2");
+  return (
+    (h1 >>> 0).toString(16).padStart(8, "0") +
+    (h2 >>> 0).toString(16).padStart(4, "0")
+  ).slice(0, 12);
 }
