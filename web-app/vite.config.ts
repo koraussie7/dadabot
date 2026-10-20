@@ -19,10 +19,13 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      '@agentmesh/busabase-adapter': path.resolve(__dirname, './packages/busabase-adapter/src/index.ts'),
-      '@agentmesh/affine-adapter': path.resolve(__dirname, './packages/affine-adapter/src/index.ts'),
-      '@agentmesh/proposal-bridge': path.resolve(__dirname, './packages/proposal-bridge/src/index.ts'),
-      '@agentmesh/dadabot-cli': path.resolve(__dirname, './packages/dadabot-cli/src/cli.ts'),
+    },
+  },
+  build: {
+    rollupOptions: {
+      external: ["node:fs/promises", "node:path"],
+    },
+  },
     },
   },
   server: {

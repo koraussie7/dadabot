@@ -1,5 +1,7 @@
 # DadaBot — Local-First AI Agent OS
 
+> ⚠️ **다른 에이전트 필독**: 현재 정리 작업 진행 중 — [CLEANUP_IN_PROGRESS.md](CLEANUP_IN_PROGRESS.md)를 먼저 읽으세요.
+
 > **"Your AI. Your Data. Your Rules."**
 
 DadaBot is a **local-first AI agent operating system** that runs entirely on your device. No cloud dependencies, no API keys required, no subscription fees.

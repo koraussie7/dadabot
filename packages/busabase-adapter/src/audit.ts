@@ -8,10 +8,12 @@
  *   - regulator / compliance review
  *   - "Why did the AI do X?" debugging
  *   - rolling back unsafe auto-merged actions
+ *
+ * Browser note: createFileAuditLogger is Node-only (uses node:fs).
+ * It is exported lazily so the module can be imported in a Vite/browser
+ * bundle without statically pulling in node:fs/promises or node:path.
  */
 
-import { appendFile, mkdir } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
 import type { ChangeRequest, AuditEntry } from "./change-request.ts";
 
 export interface AuditLogger {
@@ -20,7 +22,35 @@ export interface AuditLogger {
   flush(): Promise<void>;
 }
 
-export function createFileAuditLogger(path: string): AuditLogger {
+export function createMemoryAuditLogger(): AuditLogger & { entries: AuditEntry[] } {
+  const entries: AuditEntry[] = [];
+  return {
+    entries,
+    async log(entry) {
+      entries.push(entry);
+    },
+    async logChangeRequest(cr, action, actor) {
+      entries.push({
+        at: new Date().toISOString(),
+        actor,
+        action,
+        detail: `cr=${cr.id} status=${cr.status}`,
+      });
+    },
+    async flush() {
+      // no-op
+    },
+  };
+}
+
+/** Node-only file-backed audit logger. Lazily loads node:fs to keep the module browser-safe. */
+export async function createFileAuditLogger(path: string): Promise<AuditLogger> {
+  if (typeof window !== "undefined") {
+    throw new Error("createFileAuditLogger is not available in the browser");
+  }
+  const { appendFile, mkdir } = await import("node:fs/promises");
+  const { dirname, resolve } = await import("node:path");
+
   const absolute = resolve(path);
   const queue: AuditEntry[] = [];
   let writing = false;
@@ -54,27 +84,6 @@ export function createFileAuditLogger(path: string): AuditLogger {
     },
     async flush() {
       await drain();
-    },
-  };
-}
-
-export function createMemoryAuditLogger(): AuditLogger & { entries: AuditEntry[] } {
-  const entries: AuditEntry[] = [];
-  return {
-    entries,
-    async log(entry) {
-      entries.push(entry);
-    },
-    async logChangeRequest(cr, action, actor) {
-      entries.push({
-        at: new Date().toISOString(),
-        actor,
-        action,
-        detail: `cr=${cr.id} status=${cr.status}`,
-      });
-    },
-    async flush() {
-      // no-op
     },
   };
 }

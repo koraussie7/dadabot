@@ -217,6 +217,15 @@ export async function route(req: IncomingMessage, res: ServerResponse): Promise<
     return void json(res, 200, { ok: true, ts: Date.now() });
   }
 
+  // Dadabot install-status probe (muhanai.com /dadabot 페이지에서 호출)
+  if (method === "GET" && path === "/api/dadabot/ping") {
+    return void json(res, 200, {
+      ok: true,
+      installed: false,
+      message: "DadaBot CLI not installed locally. Run: curl -fsSL https://dadabot.dev/install.sh | sh (once dadabot.dev is live) or use packages/dadabot-cli from this repo.",
+    });
+  }
+
   if (method === "GET" && path === "/skill.md") {
     res.writeHead(200, { "content-type": "text/markdown; charset=utf-8" });
     res.end(SKILL_MD_INLINE);

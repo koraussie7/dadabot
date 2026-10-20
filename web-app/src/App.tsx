@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Routes, Route, Link, useLocation } from 'react-router-dom'
 import { BlockCanvas } from '@agentmesh/affine-adapter/ui/BlockCanvas'
 import { createInbox, createChangeRequest, applyDecision, createMemoryAuditLogger } from '@agentmesh/busabase-adapter'
-import { runPipeline, createFileSystemExecutor } from '@agentmesh/proposal-bridge'
+import { runPipeline } from '@agentmesh/proposal-bridge'
 import { createWorkspace, DADABOT_SCHEMAS } from '@agentmesh/affine-adapter'
 
 function NavBar() {
