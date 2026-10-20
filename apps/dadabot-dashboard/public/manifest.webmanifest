@@ -1,0 +1,22 @@
+{
+  "name": "DadaBot — Local-First AI Agent OS",
+  "short_name": "DadaBot",
+  "description": "로컬-퍼스트 AI 에이전트 OS — 무료 모델 44개 · 인간 승인 · 블록 캔버스.",
+  "lang": "ko",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#06b6d4",
+  "categories": ["productivity", "developer", "utilities"],
+  "icons": [
+    { "src": "/icons/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any maskable" },
+    { "src": "/icons/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "다다봇 설치 가이드", "url": "/dadabot/install", "description": "1분 셋업 가이드 열기" },
+    { "name": "Inbox", "url": "/dadabot/inbox", "description": "승인 대기 중인 ChangeRequest 보기" },
+    { "name": "Block Canvas", "url": "/dadabot/canvas", "description": "AI/사람/코드 블록 캔버스 열기" }
+  ]
+}

@@ -29,7 +29,7 @@
       "sources": [
         {
           "type": "archive",
-          "url": "https://github.com/dadabot-ai/dadabot/releases/download/v0.1.0-beta.1/dadabot-0.1.0-beta.1-linux-x86_64.tar.gz",
+          "url": "https://github.com/koraussie7/dadabot/releases/download/v0.1.0-beta.1/dadabot-0.1.0-beta.1-linux-x86_64.tar.gz",
           "sha256": "REPLACE_WITH_SHA256_FROM_RELEASE"
         }
       ]

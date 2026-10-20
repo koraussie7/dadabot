@@ -292,7 +292,10 @@ jobs:
               "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/purge_cache" \
               -H "Authorization: Bearer $CF_API_TOKEN" \
               -H "Content-Type: application/json" \
-              --data '{"files":["https://dadabot.dev/releases/latest-stable.json"]}' \
+              # NOTE: dadabot.dev domain currently unreachable. Use raw GitHub mirror.
+              # Restore to "https://dadabot.dev/releases/latest-stable.json" when
+              # the domain is back online.
+              --data '{"files":["https://raw.githubusercontent.com/koraussie7/dadabot/main/releases/latest-stable.json"]}' \
               | jq .
           else
             echo "Cloudflare credentials missing — skipping cache purge"
@@ -302,4 +305,5 @@ jobs:
         run: |
           echo "## DadaBot ${{ steps.channel.outputs.version }} released" >> "$GITHUB_STEP_SUMMARY"
           echo "Channel: **${{ steps.channel.outputs.channel }}**" >> "$GITHUB_STEP_SUMMARY"
-          echo "Manifest: https://dadabot.dev/releases/latest-${{ steps.channel.outputs.channel }}.json" >> "$GITHUB_STEP_SUMMARY"
+          # NOTE: dadabot.dev unreachable. Fall back to raw GitHub mirror.
+          echo "Manifest: https://raw.githubusercontent.com/koraussie7/dadabot/main/releases/latest-${{ steps.channel.outputs.channel }}.json" >> "$GITHUB_STEP_SUMMARY"

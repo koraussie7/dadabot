@@ -685,3 +685,50 @@ references 자체가 불필요.
 ### 다음 세션 후보
 1. web-app/node_modules 설치 후 `tsc --noEmit` 0건 확인
 2. `apps/dadabot-dashboard` vitest 마이그레이션 (옵션)
+
+---
+
+## 19. 사용자 접점 배포 인프라 (2026-10-20)
+
+다다봇과 사용자 사이의 모든 설치 경로가 dadabot.dev 도메인 부재
+상황에서도 동작하도록 폴리필됨.
+
+### 1. PWA (apps/dadabot-dashboard)
+- **public/manifest.webmanifest** — name, icons(192/512), shortcuts 3개
+  (설치 가이드 / Inbox / Canvas), theme color
+- **public/sw.js** — service worker (precache app shell + network-first
+  navigation + stale-while-revalidate for assets). CACHE_NAME을 매 릴리스
+  bump하여 stale shell 무효화
+- **public/icons/icon-192.svg, icon-512.svg** — DadaBot 마스코트 SVG
+  (cyan circle on slate square). PNG 변환은 다음 세션 작업
+- **index.html** — manifest link, theme-color, apple-mobile-web-app-*,
+  service worker 등록 스크립트 추가
+
+빌드 결과: `dist/manifest.webmanifest`, `dist/sw.js`, `dist/icons/*.svg`
+자동 포함 (vite public/). 번들 크기 변화 없음 (383KB 동일).
+
+설치 방법:
+- **iOS Safari**: 공유 → "홈 화면에 추가"
+- **Android Chrome**: 메뉴 → "홈 화면에 추가" / "앱 설치"
+- **Desktop Chrome/Edge**: 주소창 우측 설치 아이콘
+
+### 2. 기존 설치 인프라 (scripts/install/dadabot/) URL 폴리필
+- **install.sh** (macOS/Linux 60초 인스톨러):
+  `DADABOT_BASE_URL`, `DADABOT_API_URL` 기본값 → `koraussie7/dadabot`
+- **install.ps1** (Windows): `$BaseUrl`, `$ApiUrl` 동일하게 폴리필
+- **dadabot** (PATH shim 스크립트): curl 안내 URL 폴리필
+- **metadata/dadabot.rb** (Homebrew Cask): homepage, url, livecheck url
+  모두 `koraussie7/dadabot` 또는 raw GitHub mirror로 변경
+- **metadata/flatpak-dadabot.json**: source archive URL을
+  `koraussie7/dadabot` 릴리스로 변경
+- **release/release.yml** (GitHub Actions): CDN purge manifest URL과
+  step summary를 raw GitHub mirror로 변경 (2곳)
+
+### 사용자 안내 — dadabot.dev 복구 시 원복 체크리스트
+`dadabot.dev` 도메인이 다시 살아나면 다음 6개 파일에서 폴리필을 원래대로:
+1. `scripts/install/dadabot/install.sh` (lines 19-22)
+2. `scripts/install/dadabot/install.ps1` (lines 10-14)
+3. `scripts/install/dadabot/dadabot` (lines 17-18)
+4. `scripts/install/dadabot/metadata/dadabot.rb` (homepage, url, livecheck)
+5. `scripts/install/dadabot/metadata/flatpak-dadabot.json` (modules.sources.url)
+6. `scripts/install/dadabot/release/release.yml` (lines 295-298, 308-309)

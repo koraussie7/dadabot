@@ -7,8 +7,11 @@ param(
     [string]$Version = "latest",
     [ValidateSet("stable", "beta", "nightly")]
     [string]$Channel = "stable",
-    [string]$BaseUrl = "https://dadabot.dev",
-    [string]$ApiUrl = "https://api.github.com/repos/dadabot-ai/dadabot/releases",
+    # NOTE: dadabot.dev unreachable, fall back to raw GitHub mirror.
+    # Restore to "https://dadabot.dev" when the domain is back online.
+    [string]$BaseUrl = "https://raw.githubusercontent.com/koraussie7/dadabot/main",
+    # NOTE: github.com/dadabot-ai/dadabot is a placeholder; use this user's repo.
+    [string]$ApiUrl = "https://api.github.com/repos/koraussie7/dadabot/releases",
     [string]$Home = "$env:USERPROFILE\.dadabot",
     [int]$Port = 7878,
     [switch]$DryRun = $false

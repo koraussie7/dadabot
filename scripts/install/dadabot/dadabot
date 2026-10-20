@@ -14,7 +14,8 @@ if [ ! -x "$DADABOT_BIN" ]; then
 🌱 다다봇(DadaBot)이 아직 설치되지 않았습니다.
 
   설치:
-    curl -fsSL https://dadabot.dev/install.sh | bash
+# NOTE: dadabot.dev unreachable, fall back to GitHub raw mirror.
+    curl -fsSL https://raw.githubusercontent.com/koraussie7/dadabot/main/install.sh | bash
 
   설치 후 다음 명령으로 다시 시도:
     dadabot --help
