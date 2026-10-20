@@ -8,10 +8,27 @@ import { createWorkspace, DADABOT_SCHEMAS } from '@agentmesh/affine-adapter'
 function NavBar() {
   const location = useLocation()
   return (
-    <nav style={{ padding: '1rem', borderBottom: '1px solid #333', display: 'flex', gap: '1rem' }}>
+    <nav style={{ padding: '1rem', borderBottom: '1px solid #333', display: 'flex', gap: '1rem', alignItems: 'center' }}>
       <Link to="/console" style={{ color: location.pathname === '/console' ? '#61dafb' : '#fff' }}>Console</Link>
       <Link to="/inbox" style={{ color: location.pathname === '/inbox' ? '#61dafb' : '#fff' }}>Inbox</Link>
       <Link to="/canvas" style={{ color: location.pathname === '/canvas' ? '#61dafb' : '#fff' }}>Canvas</Link>
+      <span style={{ flex: 1 }} />
+      <a
+        href="https://bot.muhanai.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="DadaBot - Local-First AI Agent OS"
+        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: '#06b6d4', textDecoration: 'none', fontWeight: 600 }}
+      >
+        <svg width="22" height="22" viewBox="0 0 192 192" aria-hidden="true">
+          <rect width="192" height="192" rx="36" fill="#0f172a" />
+          <circle cx="96" cy="76" r="28" fill="#06b6d4" />
+          <rect x="68" y="104" width="56" height="40" rx="8" fill="#06b6d4" />
+          <circle cx="96" cy="76" r="14" fill="#0f172a" />
+        </svg>
+        DadaBot
+        <span style={{ fontSize: '0.65rem', color: '#888', border: '1px solid #06b6d4', borderRadius: '4px', padding: '0.05rem 0.3rem' }}>NEW</span>
+      </a>
     </nav>
   )
 }

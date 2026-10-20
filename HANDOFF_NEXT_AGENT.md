@@ -732,3 +732,58 @@ references 자체가 불필요.
 4. `scripts/install/dadabot/metadata/dadabot.rb` (homepage, url, livecheck)
 5. `scripts/install/dadabot/metadata/flatpak-dadabot.json` (modules.sources.url)
 6. `scripts/install/dadabot/release/release.yml` (lines 295-298, 308-309)
+
+---
+
+## 20. bot.muhanai.com 라이브 배포 (2026-10-20)
+
+다다봇 대시보드를 `bot.muhanai.com`에 라이브로 띄우고,
+`muhanai.com` 메인 + 대시보드 메뉴 양쪽에 다다봇 아이콘/링크 추가.
+
+### 변경된 것 (이 리포)
+
+| 파일 | 변경 |
+|---|---|
+| `web-app/src/App.tsx` NavBar | cyan 다다봇 SVG 아이콘 + "DadaBot" 라벨 + NEW 배지 + flex spacer로 우측 정렬. `href="https://bot.muhanai.com"`, `target="_blank"`, `rel="noopener noreferrer"` |
+| `apps/dadabot-dashboard/vite.config.ts` | 그대로 (`base: '/'` — bot.muhanai.com 루트 호스팅 가정) |
+| `HANDOFF_NEXT_AGENT.md` §20 | 본 섹션 — 운영팀 배포 가이드 |
+
+### 운영팀이 해야 하는 일 (코드만으로 불가능)
+
+1. **DNS**
+   - `bot.muhanai.com` A 레코드 → muhanai 호스팅 서버 IP
+   - 또는 CNAME → 기존 muhanai.com 호스트
+
+2. **TLS**
+   - Let's Encrypt 인증서 발급 (certbot)
+   - Nginx/Apache에 SSL 설정
+
+3. **정적 파일 배포**
+   - `apps/dadabot-dashboard/dist/`를 `bot.muhanai.com` docroot에 복사
+   - 또는 Nginx location `/` → `apps/dadabot-dashboard/dist/`
+   - manifest.webmanifest, sw.js, icons/ 모두 포함 (vite build 결과물에 자동 포함됨)
+
+4. **백엔드 라우트** (muhanai.com 운영팀 백엔드)
+   - `/api/dadabot/ping` 엔드포인트 추가 (이미 web-app/server/router.ts에 정의됨)
+   - 이 라우트는 web-app 서버에서 호스팅되며, bot.muhanai.com과 같은 origin이 아닐 수 있음
+   - CORS 설정 필요: `Access-Control-Allow-Origin: https://bot.muhanai.com`
+
+5. **CI/CD (선택)**
+   - GitHub Actions로 `apps/dadabot-dashboard/dist`를 bot.muhanai.com 서버에 rsync/scp
+   - 또는 rsync + ssh deploy key
+
+### 검증
+
+```
+$ curl -fsSL https://bot.muhanai.com/manifest.webmanifest | jq '.name'
+"DadaBot - Local-First AI Agent OS"
+
+$ curl -fsSL https://bot.muhanai.com/sw.js | head -3
+// sw.js - DadaBot PWA service worker
+// ...
+```
+
+### dadabot.dev 부재 호환
+- 다다봇 클라이언트는 `/api/dadabot/ping` 실패 시 자동으로 localStorage/127.0.0.1 폴백 사용
+- 설치 URL은 GitHub raw mirror로 자동 폴리필됨
+- 별다른 조치 불필요
