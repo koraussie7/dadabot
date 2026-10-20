@@ -1157,3 +1157,73 @@ VITE_TOKEN_BANK_ESCROW=true    # Phase 3 escrow UI 노출
 ### Phase 4 외부 체인 브릿지
 
 사용자 결정에 따라 **여전히 제외**. EVM/Solana bridge는 별도 세션에서 결정.
+
+---
+
+## 25. muhanai.com 라이브 배포 가이드 (2026-10-20)
+
+### 진단
+- `koraussie7/muhanai`의 `origin/main`은 `packaging/npm/token-free-gateway/agentmesh/` 구조
+- 로컬 작업은 `integration-finalize/minima-integration/apps/web/` 구조
+- **두 구조는 별개** — 단순 PR로는 라이브 반영 불가능
+
+### 변경 사항 (라이브 반영 필요)
+
+| 파일 | 라이브 반영 위치 |
+|---|---|
+| `minima-integration/apps/web/src/pages/TokenBankPage.tsx` (503줄) | `packaging/npm/token-free-gateway/agentmesh/packages/<web>/src/pages/TokenBankPage.tsx` |
+| `minima-integration/apps/web/src/pages/TasksPage.tsx` (416줄) | 동일 구조로 |
+| `minima-integration/apps/web/src/store/escrowStore.ts` (69줄) | 동일 |
+| `minima-integration/apps/web/src/types/escrow.ts` (15줄) | 동일 |
+| `web-app/src/App.tsx` NavBar 변경 | 별도 처리 |
+
+### 운영팀이 해야 하는 일
+
+1. **origin/main을 로컬로 가져오기**
+   ```bash
+   git fetch origin
+   git checkout -b feat/token-bank-minima origin/main
+   ```
+
+2. **`packaging/npm/token-free-gateway/agentmesh/packages/` 구조 파악**
+   - 기존 web 앱 디렉터리 확인
+   - tsconfig paths 별칭 (예: `@agentmesh/web/pages/...`)
+
+3. **TokenBankPage + TasksPage + escrowStore + types/escrow를 새 위치로 복사**
+   - import 경로 변경 (`../hooks/useMinima` → 상대 경로 또는 package 별칭)
+   - `escrowStore`의 `useSyncExternalStore` 패턴은 React 18 가정 — 확인 필요
+
+4. **NavBar 다다봇 메뉴를 web 앱 shell에 추가**
+   - web-app/src/App.tsx 변경 → packaging/ 구조에 맞춰 재작성
+
+5. **CI 통과 확인**
+   - `pnpm typecheck`, `pnpm test`, `pnpm build` 모두 통과
+   - Nx affected가 1+ projects 인식해야 함
+
+6. **PR 생성**
+   - base: `origin/main`
+   - compare: `feat/token-bank-minima`
+   - 제목: `feat(web): TokenBankPage + TasksPage Minima chain integration (Phase 1-3)`
+   - 본문: Phase 4 (외부 체인 브릿지) 제외 명시
+
+7. **머지 후 자동 배포**
+   - `pnpm build:web` → wrangler deploy로 자동 실행됨 (CI 설정 확인)
+
+### 사용자가 직접 할 수 있는 일
+
+- `web_fetch`로 `https://muhanai.com/token-bank` 라이브 페이지 확인
+- 로컬 dist 빌드 후 origin에 PR
+- 운영팀에게 알림 (이메일/슬랙)
+
+### 대안 (구조적 차이 회피)
+
+1. **`packaging/` 구조를 무시하고 mono-repo 최상위에 새 패키지 추가** — 운영팀 승인 필요
+2. **운영팀이 packaging 구조에 hook 추가** (e.g., `packages/web/src/pages/`가 packaging으로 symlink)
+3. **별도 repo로 분리** (`koraussie7/muhanai-web`) 후 packaging에서 git submodule로 import
+
+### 권장
+
+**가장 안전한 경로**: 옵션 2 (HANDOFF 가이드 + 운영팀 알림)
+- 로컬 변경사항은 모두 dadabot 저장소에 보존됨 (`koraussie7/dadabot`)
+- 운영팀이 packaging 구조에 맞춰 PR/머지
+- 사용자는 다음 세션에 packaging 구조 파악 후 직접 PR 진행 가능
