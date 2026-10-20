@@ -800,3 +800,78 @@ $ curl -fsSL https://bot.muhanai.com/sw.js | head -3
 - 다다봇 클라이언트는 `/api/dadabot/ping` 실패 시 자동으로 localStorage/127.0.0.1 폴백 사용
 - 설치 URL은 GitHub raw mirror로 자동 폴리필됨
 - 별다른 조치 불필요
+
+---
+
+## 21. WilliamMajanja/minima-core 소스 분석 (2026-10-20)
+
+GitHub의 [WilliamMajanja/minima-core](https://github.com/WilliamMajanja/minima-core) 저장소를
+소스 분석해 우리 `packages/minima-client`와 비교. 결론: 두 코드베이스는
+**보완 관계** — minima-core는 풀노드(Java), minima-client는 RPC/MDS 클라이언트(TS).
+
+### minima-core 구조 (Java 풀노드)
+
+- 언어: Java 17+ (`org.minima` 네임스페이스)
+- 빌드: Gradle (`build.gradle`, `settings.gradle`)
+- 데이터: H2 DB + MySQL 백업 옵션
+- 엔트리포인트: `src/org/minima/Minima.java` → `Main.main()` → `CommandRunner`
+- 메시지 시스템: `org.minima.utils.messages.MessageProcessor` 기반
+- 데이터 폴더: `~/.minima/<version>/databases/`
+- 포트: `MINIMA_PORT` 기본값 + 2 (MDS file), +3 (MDS command), +4 (RPC)
+- 라이선스: Apache 2.0 (fork upstream 기준)
+
+### 핵심 서브시스템
+
+| 경로 | 역할 |
+|---|---|
+| `system/Main.java` | 메시지 프로세서 — TxPoW miner/processor, Network manager, SendPoll, NotifyManager |
+| `system/brains/` | TxPoWMiner, TxPoWProcessor (블록 생성/검증) |
+| `system/commands/` | JSON-RPC 명령어 (`send`, `txn`, `signatures`, `network`, `backup`, `search`, `scripts`, `sendpoll`, `tutorial`, `whitepaper`, `help`) |
+| `system/network/` | NetworkManager, NIOManager (P2P), NotifyManager (webhooks) |
+| `system/genesis/` | GenesisMMR, GenesisTxPoW (체인 시작점) |
+| `database/` | MinimaDB (RamDB, Archive), TxPoWTree (MMR), CoinDB, UserDB, Wallet |
+| `kissvm/` | Minima의 스크립트 가상머신 |
+| `objects/` | TxPoW, TxBlock, Pulse, base(coin, token, address) |
+| `utils/` | MiniFormat(JSON), MinimaLogger, MiniFile, MiniString, MessageProcessor |
+
+### 우리 minima-client와의 매핑
+
+| minima-core (Java) | packages/minima-client (TS) | 차이점 |
+|---|---|---|
+| `CommandRunner.runMultiCommand()` | `MinimaRpc.call(method, params)` | 클라이언트는 HTTP JSON-RPC만 |
+| `txn.send` 명령 | `rpc.ts: SendParams` + `dada.ts: dadaSend()` | DADA 토큰 특화 |
+| `MDS` (file port + command port) | `mds.ts: MDSCommandResult` + `anchor.ts: AnchorClient` | MDS는 직접 통신이 아닌 wrapper |
+| `Database.archive` (cascade) | (없음) | 풀노드 기능 — 클라이언트는 RPC로 조회만 |
+| `genesis` | (없음) | 노드 부팅 시 사용 |
+| `NetworkManager` (P2P) | (없음) | 풀노드 기능 |
+
+### AnchorClient (Phantom 패턴)
+
+`packages/minima-client/src/anchor.ts`는 Phantom RNPE-2 패턴을 차용해 MDS로
+content hash를 anchor. minima-core의 MDS 시스템 위에서 동작.
+
+### minima-bridge와의 관계
+
+`packages/minima-bridge/`는 `minima-client`를 re-export + bridge 어댑터
+(우리 통합 코드 → minima RPC로 라우팅). minima-core의 직접 의존성은 없음.
+
+### 결론
+
+minima-core와 minima-client는 **완전히 다른 계층**:
+- **minima-core** = 풀노드 (Java, P2P, MMR, 채굴)
+- **minima-client** = RPC 클라이언트 (TypeScript, MDS wrapper, DADA 토큰)
+
+**이 리포에서 minima-core를 직접 import하거나 submodule로 가져오는 것은
+권장되지 않음** (Java 런타임 필요). 우리 통합은 RPC/MDS만으로 충분.
+
+### 권장 후속 작업
+1. RPC 명령어 커버리지 확장 — `sendpoll`, `txncreate`, `coins`, `tokencreate` 등
+2. MDS 이벤트는 `anchor.ts` 외에 cascade 알림용 listener 추가
+3. minima-core의 `tutorial.java`/`help.java` 명령어 리스트를 참고해 클라이언트 API 설계
+
+### 인용 출처
+
+- [minima-core repository](https://github.com/WilliamMajanja/minima-core)
+- [src/org/minima/Minima.java](https://raw.githubusercontent.com/WilliamMajanja/minima-core/main/src/org/minima/Minima.java)
+- [src/org/minima/system/Main.java](https://raw.githubusercontent.com/WilliamMajanja/minima-core/main/src/org/minima/system/Main.java)
+- [src/org/minima/system/commands](https://github.com/WilliamMajanja/minima-core/tree/main/src/org/minima/system/commands)
