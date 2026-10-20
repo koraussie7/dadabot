@@ -599,3 +599,40 @@ TOTAL: 100 pass, 0 fail
 ---
 
 **문서 끝. 다음 세션 에이전트는 "HANDOFF_NEXT_AGENT.md를 읽고 작업 시작"이라고만 입력해도 충분합니다.**
+
+---
+
+## 17. 라이브 사이트(muhanai.com/dadabot) 두 가지 문제 — 폴리필 (2026-10-20)
+
+### 진단
+1. **dadabot.dev 도메인 부재 (NXDOMAIN)** — 우리 팀이 운영한 적이 없는 외부 도메인.
+   `curl -fsSL https://dadabot.dev/install.sh | sh` 안내가 실패함.
+2. **`/api/dadabot/ping` 백엔드 라우트 부재** — muhanai.com 운영팀의 별도 백엔드.
+   "이 기기에 설치됨" 상태가 항상 초록불로 잘못 표시됨.
+
+위 두 문제 모두 **외부 인프라**에 속하므로 muhanai.com 운영팀의 협조 없이는
+원인 해결이 불가능합니다. 이 리포에서는 **사용자 코드 경로에 폴리필**을
+적용해 두었습니다.
+
+### 적용한 폴리필 (3개 파일)
+
+| 파일 | 변경 |
+|---|---|
+| `apps/dadabot-dashboard/src/pages/LandingPage.tsx` | (a) `installCmd` 안내 URL → GitHub raw URL로 교체. (b) `useDadabotStatus` 훅을 **3단계 폴리필**로 재작성 — ① 서버 `/api/dadabot/ping` (라우트 복구 시 자동 동작) → ② `http://127.0.0.1:3737/health` (CLI 로컬 heartbeat) → ③ `localStorage["dadabot:heartbeat"]` (CLI doctor가 남긴 타임스탬프, 7일 fresh) |
+| `muhanai-dashboard-v2.html` | install 안내 3곳을 GitHub raw URL로 교체. `install.ps1` 버튼은 "설치 스크립트 보기" GitHub blob 링크로 변경 |
+| `scripts/install/dadabot/install.sh` | `DADABOT_BASE_URL` 기본값을 GitHub raw mirror로 변경. 사용자가 환경변수로 여전히 덮어쓸 수 있음 |
+
+### dadabot.dev 복구 시 원복 검토 대상
+
+운영팀(또는 다른 주체)이 `dadabot.dev`를 다시 살리거나
+`/api/dadabot/ping` 라우트를 추가하면 다음을 검토:
+
+- [ ] `apps/dadabot-dashboard/src/pages/LandingPage.tsx:148` `installCmd` — raw URL을 `https://dadabot.dev/install.sh`로 되돌릴지 결정 (도메인 운영 주체가 우리인지 확인 후)
+- [ ] `scripts/install/dadabot/install.sh:21` `DADABOT_BASE_URL` default — 같은 판단
+- [ ] `muhanai-dashboard-v2.html` install 안내 3곳 — 같은 판단
+- [ ] `apps/dadabot-dashboard/src/pages/LandingPage.tsx`의 `useDadabotStatus` 폴리필 — 1번 프로브가 살아나면 폴리필은 그대로 두어도 무해(폴백 3단계 유지). 단, 코드 의도가 궁금하지 않게 만들려면 폴리필을 단일 fetch로 축소 검토
+
+### 검증 (2026-10-20 시점)
+- `apps/dadabot-dashboard tsc --noEmit` → 0 errors
+- `apps/dadabot-dashboard vite build` → 383.80 kB 번들
+- `packages/dadabot-cli` 테스트 → 22 pass / 0 fail

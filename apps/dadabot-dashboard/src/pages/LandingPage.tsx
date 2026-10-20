@@ -65,19 +65,56 @@ function useDadabotStatus(): StatusState {
   const [state, setState] = React.useState<StatusState>({ status: "checking" });
   React.useEffect(() => {
     let cancelled = false;
-    fetch("/api/dadabot/ping", { credentials: "include" })
-      .then(async (r) => {
+    // Polyfill for the missing /api/dadabot/ping endpoint on muhanai.com.
+    //
+    // We probe three signals in order. The original server fetch stays as
+    // probe #1 so that once muhanai.com ships the route, status detection
+    // upgrades for free with no further change here.
+    //
+    //   1. fetch("/api/dadabot/ping")           — server-side (preferred when available)
+    //   2. fetch("http://127.0.0.1:3737/health") — CLI local heartbeat (when `dadabot serve` runs)
+    //   3. localStorage "dadabot:heartbeat"     — written by `dadabot doctor --heartbeat`
+    const finalize = (next: StatusState) => {
+      if (!cancelled) setState(next);
+    };
+    (async () => {
+      try {
+        const r = await fetch("/api/dadabot/ping", { credentials: "include" });
         if (cancelled) return;
         if (r.ok) {
           const j = await r.json().catch(() => ({}));
-          setState({ status: "running", version: j.version });
-        } else {
-          setState({ status: "not-running" });
+          finalize({ status: "running", version: j.version });
+          return;
         }
-      })
-      .catch(() => {
-        if (!cancelled) setState({ status: "not-running" });
-      });
+      } catch {
+        /* fall through to local probes */
+      }
+      try {
+        const r = await fetch("http://127.0.0.1:3737/health", { mode: "cors" });
+        if (cancelled) return;
+        if (r.ok) {
+          const j = await r.json().catch(() => ({}));
+          finalize({ status: "running", version: j.version });
+          return;
+        }
+      } catch {
+        /* probe 2 unreachable — try probe 3 */
+      }
+      try {
+        const raw = window.localStorage?.getItem("dadabot:heartbeat");
+        if (raw) {
+          const hb = JSON.parse(raw) as { version?: string; ts?: number };
+          const fresh = hb.ts && Date.now() - hb.ts < 7 * 24 * 60 * 60 * 1000;
+          if (fresh) {
+            finalize({ status: "running", version: hb.version });
+            return;
+          }
+        }
+      } catch {
+        /* corrupt entry — ignore */
+      }
+      finalize({ status: "not-running" });
+    })();
     return () => {
       cancelled = true;
     };
@@ -106,7 +143,10 @@ export interface LandingPageProps {
 
 export function LandingPage({ embedded = true }: LandingPageProps): React.ReactElement {
   const status = useDadabotStatus();
-  const installCmd = "curl -fsSL https://dadabot.dev/install.sh | sh";
+  // dadabot.dev 도메인이 부재하므로, 리포지터리의 GitHub raw URL을 안내한다.
+  // muhanai.com 운영팀이 dadabot.dev를 복구하면 이 문자열만 되돌리면 된다.
+  const installCmd =
+    "curl -fsSL https://raw.githubusercontent.com/agentmesh/dadabot-cli/main/install.sh | sh";
 
   const content = (
     <div className="ddb-landing">
