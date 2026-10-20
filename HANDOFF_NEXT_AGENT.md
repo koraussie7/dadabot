@@ -981,3 +981,85 @@ minima-integration/
 2. (중간) TasksPage에서 send-payment 옵션 노출
 3. (중간) Dockerfile + tsconfig 결함 수정 (이전 §18/§22)
 4. (낮음) minima RPC 명령어 추가 (`sendpoll`, `txncreate`, `coins`, `tokencreate`)
+
+---
+
+## 23. muhanai.com/token-bank ↔ Minima chain 통합 설계 (2026-10-20)
+
+### 목표
+muhanai.com의 `/token-bank` 페이지(`/Users/brianyeon/CodeGPT/integration-finalize/minima-integration/apps/web/src/pages/TokenBankPage.tsx`)를
+stub(5줄)에서 Minima chain과 완전히 통합된 풀 컴포넌트(503줄)로 업그레이드.
+
+### 통합 단계 (Phase 4 외부 체인 브릿지는 **명시적으로 제외**)
+
+| Phase | 내용 | 상태 |
+|---|---|---|
+| **Phase 1** | TokenBankPage 풀 구현 (잔액/전송/히스토리/anchor) | ✅ **완료** |
+| **Phase 2** | TasksPage ↔ TokenBankPage 양방향 통합 (작업 → 자동 결제) | 미착수 |
+| **Phase 3** | Multi-User Token Escrow (사용자 의뢰자 간 토큰 분배) | ✅ **완료 (gated)** |
+| **Phase 4** | 외부 체인 브릿지 (EVM/Solana) | ❌ **제외** (사용자 결정) |
+
+### 구현 내용 (TokenBankPage 풀구현)
+
+**Phase 1 — 4가지 탭 + Phase 3 escrow 탭 (env gated)**:
+
+1. **Wallet 탭** — DADA + MINIMA 잔액 카드 (useMinima 훅)
+2. **Send 탭** — recipient + amount + memo → sendPayment → anchorHash
+3. **History 탭** — 모든 거래 + anchor 뱃지 + 상태 (pending/confirmed/anchored/failed)
+4. **Escrow 탭** — `VITE_TOKEN_BANK_ESCROW=true`일 때만 노출 (Phase 3)
+   - createEscrow: payee/amount/taskId 입력 → MDS anchor
+   - releaseEscrow: 상태 변경
+
+**핵심 통합 지점**:
+- `useMinima` 훅: VITE_MINIMA_NODE_URL/WS_URL/API_KEY 환경변수
+- `sendPayment`: `client.dada.send({to, amount, token})` 호출 (dada.ts 191줄 활용)
+- `anchorHash`: `client.anchor.anchorString(receipt, "token-bank")` 호출
+  - Phantom RNPE-2 패턴: `MDS.create({script, amount: 0.001, state: [addr, cid, ns, time, size, path]})`
+- `useMinima` 훅의 `anchorHash`는 MDS command port로 hash를 영구 보존
+- 거래 receipt JSON이 MDS anchor에 들어가 분쟁 해결/감사 추적 가능
+
+### 핵심 파일
+
+| 파일 | 줄수 | 역할 |
+|---|---|---|
+| `apps/web/src/pages/TokenBankPage.tsx` | 503 | 풀 구현 (이전 5줄 stub에서 업그레이드) |
+| `apps/web/src/hooks/useMinima.ts` | 96 | Minima client singleton (변경 없음) |
+| `packages/minima-client/src/anchor.ts` | 187 | Phantom RNPE-2 anchor 패턴 |
+| `packages/minima-client/src/dada.ts` | 191 | DADA 토큰 전송 |
+| `packages/minima-client/src/mds.ts` | 122 | MDS wrapper |
+
+### 환경변수 (apps/web/.env)
+
+```
+VITE_MINIMA_NODE_URL=http://localhost:9001
+VITE_MINIMA_WS_URL=ws://localhost:9002
+VITE_MINIMA_API_KEY=... (옵션)
+VITE_MINIMA_NETWORK=testnet
+VITE_TOKEN_BANK_ESCROW=true   # Phase 3 escrow UI 노출
+```
+
+### Phase 2 작업 (다음 세션 후보)
+
+1. `TasksPage`에서 작업 완료 시 TokenBankPage의 escrow 자동 release 호출
+2. TokenBankPage의 히스토리에 task ID 표시 (linkify)
+3. 작업 의뢰자가 미리 DADA를 escrow로 lock → 작업자가 받는 흐름
+4. MDS anchor로 작업자 평판 기록 (ReputationPage 연동)
+
+### Phase 4 제외 이유
+
+사용자가 명시적으로 "Phase 4는 제외" 지시. 이유 추정:
+- EVM/Solana bridge는 별도 감사/라이선스 작업 필요
+- 인프라 부담 큼 (relayer, liquidity pool)
+- Minima native 토큰으로 충분 (DADA + MINIMA)
+
+### 검증
+
+- TypeScript: standalone tsc로 syntax 검증 가능 (node_modules 부재 시 import 에러는 무시)
+- 런타임: TokenBankPage는 Minima 노드 연결 실패 시 `error` 상태 표시, useMinima 훅이 graceful fallback 제공
+- MDS anchor: Phase 1의 모든 send/receipt가 Phantom RNPE-2 패턴으로 anchor
+
+### 출처
+
+- WilliamMajanja/Phantom RNPE-2 패턴: `packages/minima-client/src/anchor.ts:5` 주석 참조
+- WilliamMajanja/minima-core MDS 시스템: `org.minima.system.network.commands`
+- TokenBankPage 사용 UI 패턴: `apps/web/src/components/minima/MinimaWalletPage.tsx` (174줄)
