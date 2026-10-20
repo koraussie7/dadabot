@@ -11,13 +11,9 @@
  */
 
 import { applyDecision } from "@agentmesh/busabase-adapter";
-import { fileURLToPath } from "url";
-import { dirname, join } from "path";
+import { join } from "path";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
-import { fetch } from "undici";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 // Persistent storage for CLI (shared with web console via file)
 const STORAGE_DIR = join(process.env.HOME || "/tmp", ".dadabot", "cli");
@@ -47,6 +43,11 @@ function loadInbox(): any[] {
         try {
             return JSON.parse(readFileSync(STORAGE_FILE, "utf-8"));
         } catch {
+            return [];
+        }
+    }
+    return [];
+}
 function formatCR(cr: any): string {
     const statusColor = cr.status === "approved" ? "\x1b[32m" :
                       cr.status === "rejected" ? "\x1b[31m" :
@@ -93,11 +94,6 @@ Examples:
   dadabot update --channel=beta
   dadabot update --background
 `);
-}
-            return [];
-        }
-    }
-    return [];
 }
 
 function saveInbox(items: any[]): void {

@@ -652,21 +652,36 @@ TOTAL: 100 pass, 0 fail
 - 수정 작업: Node.js 호환 버전으로 재작성 필요. `tsc --noEmit` 기준 14개 에러
 
 ### 2. `web-app/packages/dadabot-cli/tsconfig.json` — `composite: true`인데 references 없음
-- TypeScript 5.6에서 broken config로 인식되어 web-app 루트의 `tsc --noEmit`이 fail
-- **해결 후보**:
-  - (a) `composite: true` 제거하고 단순 tsconfig로 전환
-  - (b) `references`를 추가하고 `noEmit`을 `emitDeclarationOnly`로 변경
-- 결정 보류 — web-app의 빌드 시스템 의존성 검토 필요
+**해결 완료 (2026-10-20)**: 옵션 (a) 채택. 모든 sub-tsconfig에서 `composite`,
+`declaration`, `declarationMap` 제거. web-app 루트의 `references`도 제거
+(자식 패키지는 `include: "packages/*/src"`로 자동 포함됨).
 
 ### 3. `web-app/tsconfig.json` — `noEmit: true`인 자식을 composite로 참조 (TS6310)
-- 위 (2)와 연결된 문제. referenced project가 emit을 비활성화하면 안 됨.
+**해결 완료**: 위 (2)와 함께 처리됨. 자식이 더 이상 composite가 아니므로
+references 자체가 불필요.
 
-### 영향 범위
-- **dadabot-cli는 CLI로서 `tsx src/cli.ts`로 직접 실행하면 동작** (update 명령은 Bun 가정 때문에 깨지지만 그 외 approve/reject/list/status는 OK)
-- **`web-app` 자체의 `tsc --noEmit`은 실패**. web-app의 lint/typecheck CI가 있다면 막힘.
-- **`apps/dadabot-dashboard`는 정상** (vite 383KB 번들 빌드 성공)
+### 1. `web-app/packages/dadabot-cli/src/update.ts` — Bun 런타임 가정
+**해결 완료 (2026-10-20)**: Bun API를 Node.js native로 교체.
+- `Bun.file(path).arrayBuffer()` → `readFile(path)` + `crypto.subtle.digest`
+- `Bun.spawn([...])` → `child_process.spawn("minisign", [...])`
+  + pubkey 쓰기는 async IIFE로 분리 (Promise executor 안 await 금지)
+- `Bun.write(path, buf)` → `writeFile(path, Buffer.from(buf))`
+- `currentPath` 미정의 → `currentBin = process.execPath`로 통일
+- 154줄 `checkForUpdate` 정의 + 257줄 중복 export → 후자 제거
+- dadabot.dev manifest URL → GitHub raw mirror로 폴리필 (LandingPage.tsx와 일관)
 
-### 권장 다음 세션 작업
-1. `update.ts`의 Bun 의존 제거 — node-fetch + child_process 기반으로 재작성
-2. `web-app/packages/*/tsconfig.json`의 composite 설정 정리 (위 2번 결정 (a) 권장)
-3. 위 1, 2 완료 후 `web-app` 루트에서 `tsc --noEmit` 재검증
+추가 정리 (tsc --noUnusedLocals):
+- `__filename`, `__dirname` 미사용 변수 제거
+- `PLATFORM_MAP`, `sha256File` 미사용 심볼 제거
+- `undici` import 제거 → globalThis.fetch fallback (Node 18+)
+- `cli.ts`의 `formatCR` 들여쓰기 버그 발견·수정 (catch 블록 안에 잘못 들어가 있던 것)
+
+### 영향 범위 (갱신)
+- **dadabot-cli `tsc --noEmit` (web-app 루트 기준)**: **0 errors** ✓
+- **packages/dadabot-cli 22 tsx tests**: pass
+- **`web-app` 자체 `tsc --noEmit`**: dadabot 관련 0건. web-app/src의 React 의존성은
+  node_types 설치 후 0이 될 것으로 예상 (이번 세션은 node_types 미설치 상태로 검증)
+
+### 다음 세션 후보
+1. web-app/node_modules 설치 후 `tsc --noEmit` 0건 확인
+2. `apps/dadabot-dashboard` vitest 마이그레이션 (옵션)
