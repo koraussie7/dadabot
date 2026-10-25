@@ -26,8 +26,6 @@ export default defineConfig({
       external: ["node:fs/promises", "node:path"],
     },
   },
-    },
-  },
   server: {
     port: 5173,
     headers: {

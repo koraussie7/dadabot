@@ -28,8 +28,8 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "@agentmesh/busabase-adapter": "workspace:*",
-    "@agentmesh/affine-adapter": "workspace:*"
+    "@agentmesh/busabase-adapter": "file:../../packages/busabase-adapter",
+    "@agentmesh/affine-adapter": "file:../../packages/affine-adapter"
   },
   "devDependencies": {
     "@types/node": "^22.7.4",

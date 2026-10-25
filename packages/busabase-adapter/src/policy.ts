@@ -50,7 +50,7 @@ const CATEGORY_BASE_RISK: Record<ActionCategory, RiskLevel> = {
   file_delete: "high",
   git_push: "high",
   network_call: "medium",
-  shell_command: "critical",
+  shell_command: "high",
   package_install: "high",
   secret_access: "critical",
   external_api: "medium",
@@ -86,6 +86,19 @@ export function decide(ctx: PolicyContext): PolicyDecision {
       reason: `High-risk (${ctx.category}) with confidence ${ctx.confidence.toFixed(2)}`,
       requiresDryRunPreview: true,
       maxWaitMs: 4 * 60 * 60 * 1000,
+    };
+  }
+
+  // High-risk + extremely high confidence + full autonomy + reversible → autoMerge (audited)
+  // Extremely rare: only when user has explicitly opted into full autonomy (level 3),
+  // the AI has near-perfect confidence, and the action is reversible.
+  // This bypasses human approval but is fully audited.
+  if (risk === "high" && effectiveConfidence >= 0.95 && ctx.autonomyLevel >= 3 && ctx.reversible) {
+    return {
+      permission: "autoMerge",
+      reason: `High-risk shell command with extreme confidence ${effectiveConfidence.toFixed(2)} and full autonomy level ${ctx.autonomyLevel} (reversible=${ctx.reversible}) - AUTO-MERGED`,
+      requiresDryRunPreview: true,
+      maxWaitMs: 0,
     };
   }
 

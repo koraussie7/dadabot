@@ -11,7 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@agentmesh/busabase-adapter": "workspace:*"
+    "@agentmesh/busabase-adapter": "file:../../../packages/busabase-adapter"
   },
   "devDependencies": {
     "typescript": "^5.6.0",
