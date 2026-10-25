@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import CreditChargeModal from "./CreditChargeModal";
 import CreditInsufficientModal from "./CreditInsufficientModal";
+import { DadabotInbox, type DadabotInboxProps } from "./DadabotInbox";
 import { routeKeiPrompt, type KeiRoutingMode } from "../lib/kei-router-client.js";
 
 export type RoutingMode = KeiRoutingMode;
@@ -262,9 +263,12 @@ export function KeiRouterDashboard3() {
           <aside className="lg:col-span-4 space-y-6">
             {activeTab !== "history" && <div className="rounded-2xl border-slate-800 bg-[#0f1624] p-5 shadow-xl"><h3 className="font-bold text-white text-sm mb-3 flex items-center gap-2"><Server className="size-4 text-cyan-400" /><span>모델 계층 (라우팅 후보)</span></h3><div className="space-y-3">{AVAILABLE_MODELS.map((model) => <div key={model.id} className="p-3.5 rounded-xl border-slate-800/80 bg-slate-900/60 text-xs"><div className="flex items-center justify-between mb-1"><span className="font-bold text-white">{model.name}</span><span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${model.isFree ? "bg-emerald-500/10 text-emerald-400" : "bg-violet-500/10 text-violet-300"}`}>{model.costPer1k}</span></div><div className="text-[11px] text-slate-400 flex items-center justify-between mb-1.5"><span>{model.provider}</span><span>{model.contextWindow}</span></div><p className="text-[11px] text-slate-400 bg-slate-950/60 p-2 rounded-lg">🎯 {model.recommendedFor}</p></div>)}</div></div>}
             <div className="rounded-2xl border-slate-800 bg-gradient-to-br from-slate-900 via-[#0e1626] to-slate-950 p-5 shadow-xl"><div className="flex items-center justify-between mb-3"><h3 className="font-bold text-white text-sm flex items-center gap-2"><Coins className="size-4 text-amber-400" /><span>MHT 토큰</span></h3><span className="text-[10px] text-amber-300/80 bg-amber-500/10 px-2 py-0.5 rounded border-amber-500/20">100 MHT = 1 Credit</span></div><p className="text-xs text-slate-400 leading-relaxed mb-4">MHT와 Credit 잔액은 계정 API 연결 후 표시됩니다. 현재 라우팅 요청은 실제 서버 API를 호출합니다.</p><div className="p-3 rounded-xl bg-slate-950/80 border-slate-800/80 flex items-center justify-between text-xs mb-4"><div><div className="text-[11px] text-slate-500">MHT</div><div className="text-base font-bold text-amber-300 font-mono">{mhtBalance === null ? "—" : mhtBalance}</div></div><ArrowRight className="size-4 text-slate-600" /><div><div className="text-[11px] text-slate-500">Credit</div><div className="text-base font-bold text-cyan-300 font-mono">{kiloCreditBalance === null ? "—" : kiloCreditBalance.toFixed(2)}</div></div></div><div className="flex gap-2"><button type="button" onClick={() => setShowChargeModal(true)} className="flex-1 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs">MHT 충전</button><button type="button" onClick={() => setShowTopupModal(true)} className="px-3 py-2.5 rounded-xl border-slate-700 text-slate-300 hover:bg-slate-800 text-xs">잔액 부족</button></div></div>
+              <DadabotInbox />
           </aside>
         </div>
       </main>
+
+      {mhtBalance !== null && kiloCreditBalance !== null && <CreditChargeModal open={showChargeModal} currentMht={mhtBalance} currentCredit={kiloCreditBalance} onClose={() => setShowChargeModal(false)} onSuccess={(remainingMht, remainingCredit) => { setMhtBalance(remainingMht); setKiloCreditBalance(remainingCredit); setShowChargeModal(false); }} />}
 
       {mhtBalance !== null && kiloCreditBalance !== null && <CreditChargeModal open={showChargeModal} currentMht={mhtBalance} currentCredit={kiloCreditBalance} onClose={() => setShowChargeModal(false)} onSuccess={(remainingMht, remainingCredit) => { setMhtBalance(remainingMht); setKiloCreditBalance(remainingCredit); setShowChargeModal(false); }} />}
       <CreditInsufficientModal open={showTopupModal} required={1} current={kiloCreditBalance ?? 0} onClose={() => setShowTopupModal(false)} onUseFree={() => { setMode("free"); setShowTopupModal(false); }} onCharge={() => { setShowTopupModal(false); setShowChargeModal(true); }} />
