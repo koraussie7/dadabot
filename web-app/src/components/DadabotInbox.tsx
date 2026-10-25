@@ -16,10 +16,16 @@ export interface DadabotChangeRequest {
   proposedBy: string;
 }
 
+export interface DadabotInboxProps {
+  onApprove?: (id: string) => void;
+  onReject?: (id: string) => void;
+  className?: string;
+}
+
 /** DadabotInbox - displays pending change requests with approval actions */
-export function DadabotInbox() {
-  const [requests, setRequests] = useState<DadbabotChangeRequest[]>([]);
-  const [filters, setFilters] = useState<{
+export function DadabotInbox(_props: DadabotInboxProps = {}) {
+  const [requests, setRequests] = useState<DadabotChangeRequest[]>([]);
+  const [filters] = useState<{
     status: "pending" | "approved" | "rejected" | "all";
     permission: "all" | "autoMerge" | "changeRequest" | "read";
     category: string;
@@ -31,10 +37,15 @@ export function DadabotInbox() {
 
   useEffect(() => {
     const data = localStorage.getItem("dadabot_inbox");
-    if (data) setRequests(JSON.parse(data));
-    else {
+    if (data) {
+      try {
+        setRequests(JSON.parse(data));
+      } catch {
+        // fallback
+      }
+    } else {
       // Sample proposals demonstrating autoMerge vs changeRequest
-      setRequests([
+      const samples: DadabotChangeRequest[] = [
         {
           id: "cr-001",
           title: "로그 파일 정리",
@@ -63,45 +74,38 @@ export function DadabotInbox() {
         },
         {
           id: "cr-003",
-          title: "설정 파일 수정",
-          rationale: "환경 변수 경로 수정",
-          category: "file_edit",
-          confidence: 0.75,
-          autonomyLevel: 1,
+          title: "설정 파일 변경 (/etc/hosts)",
+          rationale: "호스트 라우팅 수정",
+          category: "shell_command",
+          confidence: 0.98,
+          autonomyLevel: 3,
           reversible: true,
           touchesProtected: true,
           permission: "changeRequest",
           createdAt: new Date(Date.now() - 7200000).toISOString(),
           proposedBy: "dadabot-agent",
         },
-      ]);
-      localStorage.setItem("dadabot_inbox", JSON.stringify(requests));
+      ];
+      setRequests(samples);
+      localStorage.setItem("dadabot_inbox", JSON.stringify(samples));
     }
   }, []);
 
-  const filtered = requests.filter(
-    (r) =>
-      filters.status === "all"
-        ? true
-        : r.permission === filters.status ||
-          (r.permission === "autoMerge" && filters.status === "pending") ||
-          (r.permission === "changeRequest" && filters.status === "pending") ||
-          (r.permission === "read" && filters.status === "approved") ||
-          (r.permission === "read" && filters.status === "rejected")
-      : true,
-    (r) =>
-      filters.permission === "all"
-        ? true
-        : filters.permission === r.permission,
-    (r) =>
-      filters.category === "all" || filters.category === r.category
-  );
+  const filtered = requests.filter((r) => {
+    if (filters.permission !== "all" && r.permission !== filters.permission) {
+      return false;
+    }
+    if (filters.category !== "all" && r.category !== filters.category) {
+      return false;
+    }
+    return true;
+  });
 
   return (
     <div className="space-y-3">
       {filtered.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          <Sparkles className="inline mr-1" /> <span>대기 중인 제안 없음</span>
+        <p className="text-sm text-muted-foreground flex items-center gap-1">
+          <Sparkles className="w-4 h-4" /> <span>대기 중인 제안 없음</span>
         </p>
       ) : (
         <div className="space-y-2 max-h-96 overflow-y-auto">
@@ -112,36 +116,37 @@ export function DadabotInbox() {
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-medium text-line line-clamp line-clamp={2}">
+                  <h4 className="font-medium text-sm line-clamp-2">
                     {r.title}
                   </h4>
-                  <p className="text-xs text-muted-foreground line-clamp line-clamp={2}">
+                  <p className="text-xs text-muted-foreground line-clamp-2">
                     {r.rationale}
                   </p>
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 ml-2 shrink-0">
                   {r.permission === "autoMerge" && (
-                    <span className="bg-green-100 text-green-800 text-xs font-medium rounded px-2 py-1">
+                    <span className="bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300 text-xs font-medium rounded px-2 py-0.5">
                       auto-merged (감사 로그)
                     </span>
                   )}
                   {r.permission === "changeRequest" && (
-                    <span className="bg-yellow-100 text-orange-800 text-xs font-medium rounded px-2 py-1">
+                    <span className="bg-yellow-100 text-orange-800 dark:bg-yellow-950 dark:text-orange-300 text-xs font-medium rounded px-2 py-0.5">
                       human approval 필요
                     </span>
                   )}
                   {r.permission === "read" && (
-                    <span className="bg-gray-100 text-gray-800 text-xs font-medium rounded px-2 py-1">
+                    <span className="bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 text-xs font-medium rounded px-2 py-0.5">
                       읽기 전용
                     </span>
                   )}
                 </div>
               </div>
-              <div className="mt-2 flex items-center gap-2 text-xs">
-                <span>{r.category}</span>
-                <span>autonomy {r.autonomyLevel}</span>
+              <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                <span className="bg-muted px-1.5 py-0.5 rounded">{r.category}</span>
+                <span>신뢰도 {(r.confidence * 100).toFixed(0)}%</span>
+                <span>자율도 Lv.{r.autonomyLevel}</span>
                 {r.touchesProtected && (
-                  <span className="bg-red-100 text-red-800 text-xs rounded px-1">
+                  <span className="bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 text-xs font-semibold rounded px-1.5 py-0.5">
                     보호된 경로
                   </span>
                 )}
