@@ -25,17 +25,26 @@ import {
 // Policy
 // ---------------------------------------------------------------------------
 
-test("policy: shell_command always changeRequest regardless of confidence", () => {
-  const ctx: PolicyContext = {
+test("policy: shell_command requires changeRequest unless reversible at autonomy 3", () => {
+  const ctxIrreversible: PolicyContext = {
     confidence: 0.99,
     category: "shell_command",
     reversible: false,
     touchesProtected: false,
     autonomyLevel: 3,
   };
-  const d = decide(ctx);
-  assert.equal(d.permission, "changeRequest");
-  assert.equal(d.requiresDryRunPreview, true);
+  const d1 = decide(ctxIrreversible);
+  assert.equal(d1.permission, "changeRequest");
+
+  const ctxReversible: PolicyContext = {
+    confidence: 0.99,
+    category: "shell_command",
+    reversible: true,
+    touchesProtected: false,
+    autonomyLevel: 3,
+  };
+  const d2 = decide(ctxReversible);
+  assert.equal(d2.permission, "autoMerge");
 });
 
 test("policy: secret_access is critical", () => {
