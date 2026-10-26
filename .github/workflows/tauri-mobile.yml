@@ -69,11 +69,16 @@ jobs:
           java-version: "17"
 
       - name: Setup Android SDK
+        # android-actions/setup-android@v3 takes no api-level/ndk-version inputs
+        # (it only installs cmdline-tools); passing them makes the action fail
+        # with "Input required and not supplied: sdkmanager" in ~21s. The SDK
+        # platform + NDK are installed below, where tauri's prebuild needs them.
         uses: android-actions/setup-android@v3
-        with:
-          api-level: 34
-          ndk-version: r26c
-          emulator: false
+      - name: Install Android platform + NDK
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "platforms;android-34" "ndk;26.1.10909125" >/dev/null 2>&1 || \
+          yes | sdkmanager "platforms;android-34" "ndk;26.1.10909125" >/dev/null
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
