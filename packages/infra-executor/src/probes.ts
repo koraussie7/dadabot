@@ -5,6 +5,7 @@
  * reload and still serve 502s. Every action therefore declares at least one
  * verification check, and `verify` failing is what triggers rollback.
  */
+import { TUNNEL_UNIT, TRAEFIK_COMPOSE } from "./runner.ts";
 import type {
   CommandResult,
   CommandRunner,
@@ -208,6 +209,78 @@ export function checksFor(action: InfraAction): VerificationCheck[] {
       // Verification is delegated to rollback.ts, which re-runs the caller's
       // original checks after restoring the snapshot.
       return [];
+
+    case "traefik.validate":
+      return [
+        {
+          name: "compose-config",
+          async check(runner) {
+            const r = await runner.run("docker", ["compose", "-f", TRAEFIK_COMPOSE, "config", "-q"]);
+            return expectExitZero("docker compose config", r);
+          },
+        },
+      ];
+
+    case "traefik.reload":
+      // A reload that leaves Traefik unhealthy is worse than no reload: the
+      // tunnel-published sites are behind it.
+      return [
+        {
+          name: "traefik-health",
+          async check(runner) {
+            const r = await runner.run("curl", ["-fsS", "--max-time", "10", "http://127.0.0.1:18090/ping"]);
+            return expectHttpOkFromBody(r, "traefik /ping");
+          },
+        },
+        {
+          name: "traefik-container",
+          async check(runner) {
+            const r = await runner.run("docker", ["ps", "--format", "{{.Names}}|{{.Status}}"]);
+            const up = r.stdout
+              .split("\n")
+              .some((l) => l.startsWith("muhanai-traefik-test") && l.includes("Up"));
+            return { ok: r.exitCode === 0 && up, detail: up ? "traefik up" : "traefik not running" };
+          },
+        },
+      ];
+
+    case "tunnel.status":
+      return [
+        {
+          name: "tunnel-active",
+          async check(runner) {
+            const r = await runner.run("systemctl", ["is-active", TUNNEL_UNIT]);
+            const active = r.stdout.trim() === "active";
+            return { ok: active, detail: `systemd: ${r.stdout.trim() || r.stderr.trim()}` };
+          },
+        },
+      ];
+
+    case "tunnel.restart":
+      // Restarting the tunnel drops every published hostname, so verify the
+      // public path end to end, not just systemd.
+      return [
+        {
+          name: "tunnel-active",
+          async check(runner) {
+            const r = await runner.run("systemctl", ["is-active", TUNNEL_UNIT]);
+            const active = r.stdout.trim() === "active";
+            return { ok: active, detail: `systemd: ${r.stdout.trim() || r.stderr.trim()}` };
+          },
+        },
+        {
+          name: "public-path",
+          async check(runner) {
+            const r = await runner.run("curl", [
+              "-fsS",
+              "--max-time",
+              "20",
+              action.url ?? "https://tunnel-test.muhanai.com/",
+            ]);
+            return expectHttpOkFromBody(r, action.url ?? "tunnel-test.muhanai.com");
+          },
+        },
+      ];
 
     default: {
       const exhaustive: never = id;

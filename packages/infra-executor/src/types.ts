@@ -19,6 +19,12 @@ export const INFRA_ACTION_IDS = [
   "config.rollback",
   "docker.inspect",
   "http.probe",
+  // Traefik — the test instance that fronts tunnel-published services.
+  "traefik.validate",
+  "traefik.reload",
+  // Cloudflare Tunnel — the outbound path for new domains.
+  "tunnel.status",
+  "tunnel.restart",
 ] as const;
 
 export type InfraActionId = (typeof INFRA_ACTION_IDS)[number];
@@ -27,7 +33,7 @@ export type InfraActionId = (typeof INFRA_ACTION_IDS)[number];
  * Services the runner may ever touch. Keep this narrow: it is a second
  * gate behind the action allowlist.
  */
-export const RESTARTABLE_SERVICES = ["nginx", "caddy", "charon", "traefik"] as const;
+export const RESTARTABLE_SERVICES = ["nginx", "caddy", "charon", "traefik", "cloudflared"] as const;
 export type RestartableService = (typeof RESTARTABLE_SERVICES)[number];
 
 /**
@@ -42,6 +48,7 @@ export const NEVER_AUTOMATIC: ReadonlySet<InfraActionId> = new Set<InfraActionId
 export const APPROVAL_REQUIRED: ReadonlySet<InfraActionId> = new Set<InfraActionId>([
   "service.restart",
   "config.rollback",
+  "tunnel.restart",
 ]);
 
 /** An inventory target. Must match a host name in inventory/hosts.ini. */

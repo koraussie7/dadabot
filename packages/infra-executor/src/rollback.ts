@@ -32,6 +32,12 @@ export const SNAPSHOT_TARGETS: Partial<Record<InfraActionId, readonly string[]>>
   "read_logs": [],
   "docker.inspect": [],
   "http.probe": [],
+  // Traefik dynamic config is the only file a reload can change; the compose
+  // file is captured too so a bad edit is recoverable.
+  "traefik.validate": ["/opt/muhanai-traefik-test/dynamic", "/opt/muhanai-traefik-test/compose.yaml"],
+  "traefik.reload": ["/opt/muhanai-traefik-test/dynamic", "/opt/muhanai-traefik-test/compose.yaml"],
+  "tunnel.status": [],
+  "tunnel.restart": ["/etc/cloudflared/muhanai-traefik.yml"],
 };
 
 export interface Snapshot {

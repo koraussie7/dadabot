@@ -49,6 +49,29 @@
       "reversible": false,
       "maxAttempts": 1,
       "requireHealthCheck": true
+    },
+    "traefik.validate": {
+      "automatic": true,
+      "reversible": true
+    },
+    "traefik.reload": {
+      "automatic": true,
+      "reversible": true,
+      "maxAttempts": 1,
+      "cooldownSeconds": 300,
+      "requireHealthCheck": true
+    },
+    "tunnel.status": {
+      "automatic": true,
+      "reversible": true,
+      "cooldownSeconds": 30
+    },
+    "tunnel.restart": {
+      "automatic": true,
+      "reversible": true,
+      "maxAttempts": 1,
+      "cooldownSeconds": 600,
+      "requireHealthCheck": true
     }
   }
 }

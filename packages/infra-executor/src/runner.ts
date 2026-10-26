@@ -36,9 +36,14 @@ export const ALLOWED_BINARIES: ReadonlySet<string> = new Set([
   "tail",
   "journalctl",
   "sqlite3",
+  "systemctl",
 ]);
 
 const DEFAULT_TIMEOUT_MS = 30_000;
+
+/** Test instance path. The production promotion changes these two constants. */
+export const TRAEFIK_COMPOSE = "/opt/muhanai-traefik-test/compose.yaml";
+export const TUNNEL_UNIT = "cloudflared-muhanai-traefik";
 
 /**
  * Build the argv for an action. Pure — used by tests and by dry-run previews.
@@ -88,6 +93,24 @@ export function buildCommand(action: InfraAction): CommandSpec {
     case "service.restart":
       return restartCommand(requireService(action));
 
+    case "traefik.validate":
+      return {
+        command: "docker",
+        argv: ["compose", "-f", TRAEFIK_COMPOSE, "config", "-q"],
+      };
+
+    case "traefik.reload":
+      // `up -d` reconciles only what changed; dynamic/ files are hot-reloaded
+      // by file.watch, so this rarely needs to do anything.
+      return { command: "docker", argv: ["compose", "-f", TRAEFIK_COMPOSE, "up", "-d"] };
+
+    case "tunnel.status":
+      return { command: "systemctl", argv: ["is-active", TUNNEL_UNIT] };
+
+    case "tunnel.restart":
+      // Blast radius: every hostname published through this tunnel.
+      return { command: "systemctl", argv: ["restart", TUNNEL_UNIT] };
+
     case "config.rollback":
       // Handled by rollback.ts (file restore), not by a subprocess.
       throw new Error("config.rollback is not a subprocess action");
@@ -109,7 +132,9 @@ function restartCommand(service: RestartableService): CommandSpec {
     case "charon":
       return { command: "docker", argv: ["restart", "charon"] };
     case "traefik":
-      return { command: "docker", argv: ["compose", "-f", "/opt/muhanai-traefik/compose.yaml", "restart"] };
+      return { command: "docker", argv: ["compose", "-f", TRAEFIK_COMPOSE, "restart"] };
+    case "cloudflared":
+      return { command: "systemctl", argv: ["restart", TUNNEL_UNIT] };
   }
 }
 
