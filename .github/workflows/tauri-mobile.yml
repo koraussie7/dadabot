@@ -39,9 +39,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Tauri v2 CLI wants Rust target triples, not Gradle ABI names —
-        # "arm64-v8a" fails with "invalid value for --target".
-        arch: [aarch64-linux-android, x86_64-linux-android]
+                arch: [aarch64, x86_64]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -139,8 +137,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Same: iOS wants Rust triples, not Darwin arch names.
-        arch: [aarch64-apple-ios, x86_64-apple-ios]
+                arch: [aarch64, x86_64]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
