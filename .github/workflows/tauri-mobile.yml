@@ -59,7 +59,7 @@ jobs:
           # The lockfile lives in web-app/ (pnpm-workspace root), not at the
           # repo root; without cache-dependency-path setup-node searches the
           # repo root and aborts with "Dependencies lock file is not found".
-          cache-dependency-path: web-app/pnpm-lock.yaml
+          cache-dependency-path: web-app/tauri-mobile/package.json
           cache: "pnpm"
 
       - name: Setup Java 17
@@ -98,11 +98,14 @@ jobs:
 
       - name: Install Node deps
         run: |
-          # pnpm-workspace root is web-app/ — that is where pnpm-lock.yaml
-          # lives. Installing from web-app/tauri-mobile aborted with
-          # ERR_PNPM_NO_LOCKFILE in CI (the lockfile is untracked there).
-          cd web-app
-          pnpm install --frozen-lockfile
+          # web-app/tauri-mobile is a STANDALONE package, not a pnpm workspace
+          # member: web-app/ has no pnpm-workspace.yaml, and its lockfile does
+          # not mention @tauri-apps/cli. Installing from web-app/ skipped the
+          # tauri CLI, so `tauri build` later failed with "command not found".
+          # tauri-mobile has no committed lockfile, so install without
+          # --frozen-lockfile and let setup-node cache by package.json only.
+          cd web-app/tauri-mobile
+          pnpm install
 
       - name: Build Android (${{ matrix.arch }})
         env:
@@ -150,7 +153,7 @@ jobs:
           # The lockfile lives in web-app/ (pnpm-workspace root), not at the
           # repo root; without cache-dependency-path setup-node searches the
           # repo root and aborts with "Dependencies lock file is not found".
-          cache-dependency-path: web-app/pnpm-lock.yaml
+          cache-dependency-path: web-app/tauri-mobile/package.json
           cache: "pnpm"
 
       - name: Setup Rust
@@ -168,11 +171,14 @@ jobs:
 
       - name: Install Node deps
         run: |
-          # pnpm-workspace root is web-app/ — that is where pnpm-lock.yaml
-          # lives. Installing from web-app/tauri-mobile aborted with
-          # ERR_PNPM_NO_LOCKFILE in CI (the lockfile is untracked there).
-          cd web-app
-          pnpm install --frozen-lockfile
+          # web-app/tauri-mobile is a STANDALONE package, not a pnpm workspace
+          # member: web-app/ has no pnpm-workspace.yaml, and its lockfile does
+          # not mention @tauri-apps/cli. Installing from web-app/ skipped the
+          # tauri CLI, so `tauri build` later failed with "command not found".
+          # tauri-mobile has no committed lockfile, so install without
+          # --frozen-lockfile and let setup-node cache by package.json only.
+          cd web-app/tauri-mobile
+          pnpm install
 
       - name: Build iOS (${{ matrix.arch }})
         env:
