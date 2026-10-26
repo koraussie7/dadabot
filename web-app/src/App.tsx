@@ -85,57 +85,70 @@ function NavBar() {
 
 function ConsolePage() {
   const [input, setInput] = useState('')
-  const [output, setOutput] = useState<string[]>([])
+  const [messages, setMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([])
   const [proposalId, setProposalId] = useState(0)
+  const [chatMode, setChatMode] = useState<'command' | 'chat'>('command')
 
   const audit = createMemoryAuditLogger()
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleChatSubmit = async (content: string) => {
+    if (!content.trim()) return
+    setMessages(prev => [...prev, {role: 'user', content}])
+    setInput('')
+    const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? 'sk-test-key-for-dev'
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json'},
+      body: JSON.stringify({model: 'gpt-4o-mini', messages: [{role: 'user', content}], temperature: 0.7}),
+    })
+    if (!response.ok) {
+      const errTxt = await response.text()
+      setMessages(prev => [...prev, {role: 'assistant', content: `❌ LLM 오류: ${errTxt}`}])
+      return
+    }
+    const data = await response.json()
+    const assistantMsg = data.choices[0]?.message?.content ?? '❌ 응답 없음'
+    setMessages(prev => [...prev, {role: 'assistant', content: assistantMsg}])
+  }
+
+  // ── 기존 파이프라인 실행 (명령어 모드) ────────────────────────
+  const handlePipelineSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim()) return
-
     const nextProposalId = proposalId + 1
     setProposalId(nextProposalId)
     const proposal = {
       id: `prop-${nextProposalId}`,
       kind: 'file_edit' as const,
-      files: [{ path: 'example.txt', content: input }],
+      files: [{path: 'example.txt', content: input}],
       confidence: 0.8,
       reversible: true,
       rationale: 'User requested via console',
     }
-
-    setOutput(prev => [...prev, `> ${input}`])
     setInput('')
-
     try {
       const result = await runPipeline(
         proposal,
-        {
-          inbox: createInbox(),
-          workspace: null as any,
-          audit,
-          autoMergeAcknowledged: true,
-        },
-        {
-          awaitDecision: async () => 'approve',
-          executor: { apply: async () => {} },
-        }
+        {inbox: createInbox(), workspace: null as any, audit, autoMergeAcknowledged: true},
+        {awaitDecision: async () => 'approve', executor: {apply: async () => {}}}
       )
-      setOutput(prev => [...prev, `✅ Applied: ${result.status}`])
-    } catch (err) {
-      setOutput(prev => [...prev, `❌ Error: ${(err as Error).message}`])
+      setMessages(prev => [...prev, {role: 'assistant', content: `✅ Applied: ${result.status}`}])
+    } catch (err: any) {
+      setMessages(prev => [...prev, {role: 'assistant', content: `❌ Error: ${err.message || '알 수 없는 에러'}`}])
     }
   }
+
+  // ── 모드 전환 ────────────────────────────────────────────────
+  const toggleMode = () => setChatMode(prev => prev === 'command' ? 'chat' : 'command')
 
   return (
     <div style={{ padding: '2rem', textAlign: 'left', maxWidth: '800px', margin: '0 auto' }}>
       <h2>DadaBot Console</h2>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+      <form onSubmit={chatMode === 'command' ? handlePipelineSubmit : handleChatSubmit} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Type a command (e.g., 'create file hello.txt')..."
+          placeholder={chatMode === 'chat' ? '메시지를 입력하세요...' : 'Type a command (e.g., create file hello.txt)...'}
           style={{ flex: 1, padding: '0.5rem', fontSize: '1rem' }}
         />
         <button type="submit" style={{ padding: '0.5rem 1rem' }}>Run</button>
