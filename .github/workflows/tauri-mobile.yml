@@ -99,7 +99,10 @@ jobs:
 
       - name: Install Node deps
         run: |
-          cd web-app/tauri-mobile
+          # pnpm-workspace root is web-app/ — that is where pnpm-lock.yaml
+          # lives. Installing from web-app/tauri-mobile aborted with
+          # ERR_PNPM_NO_LOCKFILE in CI (the lockfile is untracked there).
+          cd web-app
           pnpm install --frozen-lockfile
 
       - name: Build Android (${{ matrix.arch }})
@@ -166,7 +169,10 @@ jobs:
 
       - name: Install Node deps
         run: |
-          cd web-app/tauri-mobile
+          # pnpm-workspace root is web-app/ — that is where pnpm-lock.yaml
+          # lives. Installing from web-app/tauri-mobile aborted with
+          # ERR_PNPM_NO_LOCKFILE in CI (the lockfile is untracked there).
+          cd web-app
           pnpm install --frozen-lockfile
 
       - name: Build iOS (${{ matrix.arch }})
