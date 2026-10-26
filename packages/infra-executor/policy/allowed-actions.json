@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "mode": "allowlist",
+  "targetGroup": "proxy_nodes",
+  "actions": {
+    "health_check": {
+      "automatic": true,
+      "reversible": true,
+      "maxAttempts": 3,
+      "cooldownSeconds": 60
+    },
+    "read_logs": {
+      "automatic": true,
+      "reversible": true,
+      "maxLines": 200
+    },
+    "http.probe": {
+      "automatic": true,
+      "reversible": true
+    },
+    "docker.inspect": {
+      "automatic": true,
+      "reversible": true
+    },
+    "nginx.validate": {
+      "automatic": true,
+      "reversible": true
+    },
+    "caddy.validate": {
+      "automatic": true,
+      "reversible": true
+    },
+    "nginx.reload": {
+      "automatic": true,
+      "reversible": true,
+      "maxAttempts": 1,
+      "cooldownSeconds": 300
+    },
+    "service.restart": {
+      "automatic": true,
+      "reversible": true,
+      "maxAttempts": 1,
+      "cooldownSeconds": 600,
+      "allow": ["nginx", "traefik"],
+      "requireHealthCheck": true
+    },
+    "config.rollback": {
+      "automatic": true,
+      "reversible": false,
+      "maxAttempts": 1,
+      "requireHealthCheck": true
+    }
+  }
+}

@@ -55,6 +55,21 @@ export interface PipelineContext {
   now?: () => number;
   /** Override autoMerge behaviour per-call */
   autoMergeAcknowledged?: boolean;
+  /**
+   * Caller-supplied policy inputs that take precedence over the values
+   * inferred from the proposal.
+   *
+   * Infra automation uses this because `proposal.reversible` is a model
+   * self-report and `autonomyLevel` cannot be derived from `agent.name`.
+   * The executor re-validates everything afterwards; this only decides which
+   * permission tier the ChangeRequest lands in.
+   */
+  policyOverride?: Partial<{
+    category: ActionCategory;
+    reversible: boolean;
+    touchesProtected: boolean;
+    autonomyLevel: 0 | 1 | 2 | 3;
+  }>;
 }
 
 export interface PipelineResult {
@@ -124,12 +139,14 @@ export async function runPipeline(
   emit("ingest", `${proposal.files.length} file(s), ${proposal.toolCalls.length} tool call(s)`);
 
   // Stage 2: decide
+  // policyOverride wins over inference; confidence always comes from the model.
+  const override = ctx.policyOverride ?? {};
   const policy = {
     confidence: proposal.confidence,
-    category: mapKindToCategory(proposal.kind),
-    reversible: proposal.reversible,
-    touchesProtected: touchesProtected(proposal.files),
-    autonomyLevel: (proposal.agent.name ? 1 : 0) as 0 | 1 | 2 | 3,
+    category: override.category ?? mapKindToCategory(proposal.kind),
+    reversible: override.reversible ?? proposal.reversible,
+    touchesProtected: override.touchesProtected ?? touchesProtected(proposal.files),
+    autonomyLevel: (override.autonomyLevel ?? (proposal.agent.name ? 1 : 0)) as 0 | 1 | 2 | 3,
   };
   emit("decide", `category=${policy.category}, confidence=${proposal.confidence.toFixed(2)}`);
 

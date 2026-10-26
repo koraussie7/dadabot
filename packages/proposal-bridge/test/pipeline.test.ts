@@ -390,3 +390,93 @@ test("integration: rejected proposal leaves no note block", async () => {
   const note = blocks.find((b) => b.flavour === "dadabot:human-note");
   assert.equal(note, undefined, "rejected proposals must not produce a human-note block");
 });
+
+// ---------------------------------------------------------------------------
+// policyOverride — infra automation entry point
+//
+// `proposal.reversible` is a model self-report and `autonomyLevel` cannot be
+// inferred from `agent.name`. Infra actions therefore pass explicit policy
+// inputs; the executor re-validates afterwards.
+// ---------------------------------------------------------------------------
+test("policyOverride: elevated autonomy can upgrade to autoMerge", async () => {
+  const ctx = makeContext();
+  // Medium-risk file_edit at confidence 0.92 with default inferred
+  // autonomyLevel=1 already auto-merges, so use a high-risk shell_command,
+  // which needs autonomy 3 + reversible + high confidence.
+  const proposal = makeProposal({
+    id: "p-override-1",
+    kind: "shell_command",
+    confidence: 0.96,
+    reversible: true,
+    files: [],
+    toolCalls: [{ name: "docker.restart", args: { service: "traefik" } }],
+  });
+
+  const result = await runPipeline(
+    proposal,
+    {
+      ...ctx,
+      autoMergeAcknowledged: true,
+      policyOverride: { autonomyLevel: 3, reversible: true, touchesProtected: false },
+    },
+  );
+
+  assert.equal(result.decision.permission, "autoMerge");
+  assert.equal(result.applied, true);
+});
+
+test("policyOverride: forcing reversible=false blocks the autoMerge path", async () => {
+  const ctx = makeContext();
+  const proposal = makeProposal({
+    id: "p-override-2",
+    kind: "shell_command",
+    confidence: 0.99,
+    reversible: true, // model claims reversible
+    files: [],
+    toolCalls: [{ name: "docker.restart", args: { service: "charon" } }],
+  });
+
+  const result = await runPipeline(
+    proposal,
+    {
+      ...ctx,
+      autoMergeAcknowledged: true,
+      policyOverride: { autonomyLevel: 3, reversible: false },
+    },
+    { awaitDecision: async () => "reject" },
+  );
+
+  // Charon restart is not reversible in reality; the override downgrades it
+  // to a human decision.
+  assert.equal(result.decision.permission, "changeRequest");
+  assert.equal(result.applied, false);
+});
+
+test("policyOverride: touchesProtected=true forces critical/changeRequest", async () => {
+  const ctx = makeContext();
+  const result = await runPipeline(
+    makeProposal({ id: "p-override-3", confidence: 0.99, reversible: true }),
+    {
+      ...ctx,
+      autoMergeAcknowledged: true,
+      policyOverride: { touchesProtected: true, autonomyLevel: 3 },
+    },
+    { awaitDecision: async () => "reject" },
+  );
+
+  assert.equal(result.decision.permission, "changeRequest");
+  assert.match(result.decision.reason, /Critical/);
+});
+
+test("policyOverride: omitted fields keep existing inference (back-compat)", async () => {
+  const ctx = makeContext();
+  // No policyOverride: the pre-existing inference must still produce
+  // autoMerge for a medium-risk reversible edit at 0.92 confidence.
+  const result = await runPipeline(
+    makeProposal({ id: "p-override-4" }),
+    { ...ctx, autoMergeAcknowledged: true },
+  );
+
+  assert.equal(result.cr.policy.permission, "autoMerge");
+  assert.match(result.decision.reason, /Medium-risk file_edit/);
+});
