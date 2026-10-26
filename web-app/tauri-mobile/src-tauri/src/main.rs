@@ -12,7 +12,6 @@ use tauri_plugin_fs::init as init_fs;
 use tauri_plugin_http::init as init_http;
 use tauri_plugin_shell::init as init_shell;
 use tauri_plugin_notification::init as init_notification;
-use tauri_plugin_local_notification::init as init_local_notification;
 use tauri_plugin_biometric::init as init_biometric;
 use tauri_plugin_clipboard::init as init_clipboard;
 use tauri_plugin_opener::init as init_opener;
@@ -65,18 +64,6 @@ async fn biometric_auth(reason: String) -> Result<bool, String> {
     }
 }
 
-#[tauri::command]
-async fn send_local_notification(title: String, body: String) -> Result<(), String> {
-    #[cfg(mobile)]
-    {
-        // This would use tauri-plugin-local-notification
-        Ok(())
-    }
-    #[cfg(not(mobile))]
-    {
-        Ok(())
-    }
-}
 
 #[tauri::command]
 async fn open_external_url(url: String) -> Result<(), String> {
@@ -170,7 +157,6 @@ fn main() {
         .plugin(init_http())
         .plugin(init_shell())
         .plugin(init_notification())
-        .plugin(init_local_notification())
         .plugin(init_biometric())
         .plugin(init_clipboard())
         .plugin(init_opener())
@@ -179,7 +165,6 @@ fn main() {
             greet,
             get_device_info,
             biometric_auth,
-            send_local_notification,
             open_external_url,
             dadabot_version,
             dadabot_inbox,
