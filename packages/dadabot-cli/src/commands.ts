@@ -16,8 +16,10 @@ import {
 } from "./pipeline.ts";
 import {
   type PersistentState,
+  loadInboxFile,
   loadPersistentState,
 } from "./store.ts";
+import { createSqliteInbox, migrateJsonInbox } from "../../busabase-adapter/src/index.ts";
 import { formatTable, formatJson, type DadabotEnv } from "./env.ts";
 import type {
   ChangeRequest,
@@ -340,4 +342,55 @@ export function cmdVersion(env: DadabotEnv): number {
   console.log(`home:    ${env.home}`);
   console.log(`inbox:   ${env.inboxFile}`);
   return 0;
+}
+
+// ---------------------------------------------------------------------------
+// migrate-inbox — copy legacy inbox.json into the SQLite backend
+// ---------------------------------------------------------------------------
+export interface MigrateOptions {
+  json?: boolean;
+}
+
+/**
+ * One-way, idempotent import of ~/.dadabot/inbox.json into ~/.dadabot/inbox.db.
+ *
+ * The JSON file is left untouched so a rollback is just unsetting
+ * DADABOT_INBOX_BACKEND. Re-running imports nothing new because the CR id is
+ * the primary key.
+ */
+export function cmdMigrateInbox(env: DadabotEnv, opts: MigrateOptions = {}): number {
+  const legacy = loadInboxFile(env.inboxFile);
+  const dbPath = process.env["DADABOT_INBOX_DB"] ?? `${env.home}/inbox.db`;
+
+  if (legacy.length === 0) {
+    if (opts.json) {
+      console.log(formatJson({ migrated: 0, total: 0, dbPath, note: "legacy inbox empty or missing" }));
+    } else {
+      console.log(`Nothing to migrate (${env.inboxFile} is empty or missing).`);
+    }
+    return 0;
+  }
+
+  const inbox = createSqliteInbox({ path: dbPath });
+  try {
+    const imported = migrateJsonInbox(inbox, legacy);
+    const total = inbox.size();
+    if (opts.json) {
+      console.log(formatJson({ migrated: imported, total, dbPath, source: env.inboxFile }));
+    } else {
+      console.log(`Imported ${imported} new ChangeRequest(s); ${total} total in ${dbPath}.`);
+      if (imported === 0) {
+        console.log("(Already migrated — nothing to do.)");
+      } else {
+        console.log("Legacy inbox.json left in place. To use the new backend:");
+        console.log("  export DADABOT_INBOX_BACKEND=sqlite");
+      }
+    }
+    return 0;
+  } catch (err) {
+    console.error(`error: migration failed — ${(err as Error).message}`);
+    return 1;
+  } finally {
+    inbox.close();
+  }
 }

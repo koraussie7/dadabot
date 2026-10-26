@@ -24,6 +24,7 @@ import {
   cmdInbox,
   cmdDoctor,
   cmdVersion,
+  cmdMigrateInbox,
 } from "./commands.ts";
 import {
   type ChangeRequestStatus,
@@ -88,6 +89,9 @@ export function run(argv: string[]): number {
 
       case "inbox":
         return cmdInbox(env, { json: parsed.flags["json"] === true });
+
+      case "migrate-inbox":
+        return cmdMigrateInbox(env, { json: parsed.flags["json"] === true });
 
       case "list":
         return cmdList(env, {

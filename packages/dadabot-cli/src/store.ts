@@ -21,6 +21,7 @@ import { dirname } from "node:path";
 import { mkdirSync } from "node:fs";
 import {
   createInbox,
+  createSqliteInbox,
   type Inbox,
   type ChangeRequest,
 } from "../../busabase-adapter/src/index.ts";
@@ -38,6 +39,11 @@ interface InboxSnapshot {
   requests: ChangeRequest[];
 }
 
+/** Database location for the sqlite backend, next to the legacy inbox.json. */
+function sqliteInboxPath(env: DadabotEnv): string {
+  return process.env["DADABOT_INBOX_DB"] ?? `${env.home}/inbox.db`;
+}
+
 export interface PersistentState {
   inbox: Inbox;
   workspace: Workspace;
@@ -46,11 +52,19 @@ export interface PersistentState {
 }
 
 export function loadPersistentState(env: DadabotEnv): PersistentState {
-  // Inbox + workspace wired with file-backed persistence
-  const inbox = createInbox({
-    load: () => loadInbox(env.inboxFile),
-    persist: (crs) => saveInbox(env.inboxFile, crs),
-  });
+  // Inbox backend selection:
+  //   DADABOT_INBOX_BACKEND=sqlite  → single-transaction inbox, safe for two
+  //                                   concurrent processes (CLI + dashboard)
+  //   unset / "json"                → legacy whole-file rewrite (default,
+  //                                   kept so existing installs are unaffected)
+  const backend = process.env["DADABOT_INBOX_BACKEND"] ?? "json";
+  const inbox: Inbox =
+    backend === "sqlite"
+      ? createSqliteInbox({ path: sqliteInboxPath(env) })
+      : createInbox({
+          load: () => loadInbox(env.inboxFile),
+          persist: (crs) => saveInbox(env.inboxFile, crs),
+        });
   const workspace = createWorkspace({
     id: env.workspaceId,
     schema: DADABOT_SCHEMAS,
@@ -64,6 +78,11 @@ export function loadPersistentState(env: DadabotEnv): PersistentState {
   };
   state.load();
   return state;
+}
+
+/** Read a legacy JSON inbox file. Exported for `dadabot migrate-inbox`. */
+export function loadInboxFile(path: string): ChangeRequest[] {
+  return loadInbox(path);
 }
 
 function loadInbox(path: string): ChangeRequest[] {

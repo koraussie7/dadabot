@@ -67,3 +67,30 @@ HANDOFF_NEXT_AGENT.md               cross-agent hand-off doc (diagnosis, polyfil
 ## Issues / PRs
 - https://github.com/koraussie7/dadabot/issues
 - https://github.com/koraussie7/dadabot/pulls
+
+## Inbox storage backend
+
+Two backends are available; the default is unchanged so existing installs keep working.
+
+| Backend | Storage | Concurrency |
+|---|---|---|
+| `json` (default) | `~/.dadabot/inbox.json`, whole-file rewrite per mutation | Two processes can lose writes |
+| `sqlite` | `~/.dadabot/inbox.db`, one transaction per mutation | Safe for CLI + dashboard at once |
+
+Switch to SQLite:
+
+```bash
+dadabot migrate-inbox          # idempotent; legacy inbox.json is left in place
+export DADABOT_INBOX_BACKEND=sqlite
+dadabot list
+```
+
+Roll back by unsetting `DADABOT_INBOX_BACKEND` — the JSON file was never modified.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `DADABOT_INBOX_BACKEND` | `json` | `json` or `sqlite` |
+| `DADABOT_INBOX_DB` | `$DADABOT_HOME/inbox.db` | SQLite file location |
+
+The SQLite backend uses Node's built-in `node:sqlite` (Node 22+), so there is no
+native module to compile on the VPS.
