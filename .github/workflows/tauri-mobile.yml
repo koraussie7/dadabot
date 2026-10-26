@@ -44,16 +44,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      # pnpm BEFORE setup-node: setup-node with cache: "pnpm" resolves the
+      # package manager during setup and aborts with "Unable to locate
+      # executable file: pnpm" when it is not on PATH yet. The old ordering
+      # killed every tagged build in ~40s.
       - name: Setup Node 20
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "pnpm"
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -126,16 +129,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      # pnpm BEFORE setup-node: setup-node with cache: "pnpm" resolves the
+      # package manager during setup and aborts with "Unable to locate
+      # executable file: pnpm" when it is not on PATH yet. The old ordering
+      # killed every tagged build in ~40s.
       - name: Setup Node 20
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "pnpm"
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
