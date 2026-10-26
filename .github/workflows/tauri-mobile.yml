@@ -68,12 +68,11 @@ jobs:
           distribution: "temurin"
           java-version: "17"
 
-      - name: Setup Android SDK
-        # android-actions/setup-android@v3 takes no api-level/ndk-version inputs
-        # (it only installs cmdline-tools); passing them makes the action fail
-        # with "Input required and not supplied: sdkmanager" in ~21s. The SDK
-        # platform + NDK are installed below, where tauri's prebuild needs them.
-        uses: android-actions/setup-android@v3
+      # android-actions/setup-android@v3 runs `sdkmanager --licenses` without
+      # piping `yes`, so the license prompt times out and the action fails with
+      # exit 1 in ~21s. The ubuntu-latest runner already ships the full Android
+      # SDK (cmdline-tools at /usr/local/lib/android/sdk), so skip the action
+      # and install just the platform + NDK we need.
       - name: Install Android platform + NDK
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
