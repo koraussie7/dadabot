@@ -56,6 +56,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          # The lockfile lives in web-app/ (pnpm-workspace root), not at the
+          # repo root; without cache-dependency-path setup-node searches the
+          # repo root and aborts with "Dependencies lock file is not found".
+          cache-dependency-path: web-app/pnpm-lock.yaml
           cache: "pnpm"
 
       - name: Setup Java 17
@@ -141,6 +145,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          # The lockfile lives in web-app/ (pnpm-workspace root), not at the
+          # repo root; without cache-dependency-path setup-node searches the
+          # repo root and aborts with "Dependencies lock file is not found".
+          cache-dependency-path: web-app/pnpm-lock.yaml
           cache: "pnpm"
 
       - name: Setup Rust
