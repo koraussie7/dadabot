@@ -29,13 +29,67 @@ function expectExitZero(command: string, result: CommandResult): Verification {
   };
 }
 
-/** curl -o /dev/null -w '%{http_code}' prints the status code as stdout. */
-function expectHttpOk(result: CommandResult): Verification {
+/**
+ * Bodies that mean "the proxy answered, but not with the site."
+ *
+ * Measured 2026-10-26: Charon returns HTTP **200** for a host it does not know,
+ * serving an "unknown site" page. A status-code-only check reports success on a
+ * completely broken route, which is worse than no check at all.
+ * See ~/muhanai-infra/docs/hot-add-proxy.md.
+ */
+export const DECEPTIVE_OK_MARKERS: readonly string[] = [
+  "Site Not Configured",
+  "unknown.html",
+];
+
+/**
+ * Judge a probe that fetched the body (`curl -fsS <url>`).
+ *
+ * `curl -f` makes 4xx/5xx a non-zero exit, so exit code covers transport and
+ * status failures; the body check then catches the 200-with-error-page case.
+ */
+function expectHttpOkFromBody(result: CommandResult, url: string): Verification {
+  if (result.exitCode !== 0) {
+    return {
+      ok: false,
+      detail: `${url} failed (exit ${result.exitCode}): ${(result.stderr || "").trim().slice(0, 200)}`,
+    };
+  }
+
+  const marker = DECEPTIVE_OK_MARKERS.find((m) => result.stdout.includes(m));
+  if (marker) {
+    return {
+      ok: false,
+      detail: `${url} returned an error page (contains "${marker}"), not the site`,
+    };
+  }
+
+  return { ok: true, detail: `${url} ok (${result.stdout.length} bytes)` };
+}
+
+/**
+ * curl -o /dev/null -w '%{http_code}' prints the status code as stdout.
+ *
+ * `body` is optional: pass it when the caller fetched the response body too,
+ * so a 200 carrying an error page is rejected.
+ */
+function expectHttpOk(result: CommandResult, body?: string): Verification {
   const code = Number(result.stdout.trim());
-  const ok = result.exitCode === 0 && code > 0 && code < 400;
+  const statusOk = result.exitCode === 0 && code > 0 && code < 400;
+
+  if (statusOk && body) {
+    const marker = DECEPTIVE_OK_MARKERS.find((m) => body.includes(m));
+    if (marker) {
+      return {
+        ok: false,
+        detail: `HTTP ${code} but body contains "${marker}" — the proxy answered with an error page, not the site`,
+      };
+    }
+  }
+
   return {
-    ok,
-    detail: ok ? `HTTP ${code}` : `HTTP ${result.stdout.trim() || "?"} (exit ${result.exitCode})`,
+    ok: statusOk,
+    detail: statusOk ? `HTTP ${code}` : `HTTP ${result.stdout.trim() || "?"} (exit ${result.exitCode})`,
   };
 }
 
@@ -112,17 +166,16 @@ export function checksFor(action: InfraAction): VerificationCheck[] {
           name: "http",
           async check(runner) {
             const url = action.url ?? (id === "health_check" ? CHARON_ADMIN_HEALTH : DEFAULT_SITE_PROBE);
+            // Fetch the body: Charon answers 200 for unknown hosts, so the
+            // status code alone cannot distinguish a working route from a
+            // catch-all error page.
             const r = await runner.run("curl", [
               "-fsS",
-              "-o",
-              "/dev/null",
-              "-w",
-              "%{http_code}",
               "--max-time",
               "10",
               url,
             ]);
-            return expectHttpOk(r);
+            return expectHttpOkFromBody(r, url);
           },
         },
       ];
