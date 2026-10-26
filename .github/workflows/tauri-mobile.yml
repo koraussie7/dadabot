@@ -116,7 +116,7 @@ jobs:
           TAURI_ANDROID_TARGET: ${{ matrix.arch }}
         run: |
           cd web-app/tauri-mobile
-          pnpm run tauri:android build --target ${{ matrix.arch }}
+          pnpm run tauri:android --target ${{ matrix.arch }}
 
       - name: Upload Android artifact (${{ matrix.arch }})
         uses: actions/upload-artifact@v4
@@ -189,7 +189,7 @@ jobs:
           TAURI_IOS_TARGET: ${{ matrix.arch }}
         run: |
           cd web-app/tauri-mobile
-          pnpm run tauri:ios build --target ${{ matrix.arch }}
+          pnpm run tauri:ios --target ${{ matrix.arch }}
 
       - name: Upload iOS artifact (${{ matrix.arch }})
         uses: actions/upload-artifact@v4
