@@ -21,10 +21,12 @@ import { dirname } from "node:path";
 import { mkdirSync } from "node:fs";
 import {
   createInbox,
-  createSqliteInbox,
   type Inbox,
   type ChangeRequest,
 } from "../../busabase-adapter/src/index.ts";
+// Imported from its own module, not the barrel: inbox-sqlite pulls in
+// node:sqlite, which must never reach the dashboard's browser bundle.
+import { createSqliteInbox } from "../../busabase-adapter/src/inbox-sqlite.ts";
 import {
   createWorkspace,
   type Workspace,

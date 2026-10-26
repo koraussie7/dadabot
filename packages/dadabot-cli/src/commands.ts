@@ -19,7 +19,7 @@ import {
   loadInboxFile,
   loadPersistentState,
 } from "./store.ts";
-import { createSqliteInbox, migrateJsonInbox } from "../../busabase-adapter/src/index.ts";
+import { createSqliteInbox, migrateJsonInbox } from "../../busabase-adapter/src/inbox-sqlite.ts";
 import { formatTable, formatJson, type DadabotEnv } from "./env.ts";
 import type {
   ChangeRequest,

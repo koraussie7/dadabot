@@ -61,6 +61,31 @@ interface StatusState {
   version?: string;
 }
 
+/**
+ * Is this response actually the Dadabot API, or a web server's HTML fallback?
+ *
+ * Measured 2026-10-26 on bot.muhanai.com: nginx rewrites unknown paths to
+ * index.html, so `/api/dadabot/ping` answers **200 with an HTML body**. A plain
+ * `r.ok` check therefore reports "running" on a host with no Dadabot server at
+ * all (the landing page showed "이 기기에 설치됨" while nothing was installed).
+ *
+ * Treat only a JSON body carrying `ok: true` as a live server.
+ */
+async function readDadabotPing(r: Response): Promise<{ ok: boolean; version?: string } | null> {
+  const ct = r.headers.get("content-type") ?? "";
+  if (!r.ok) return null;
+  // A JSON content-type is a strong signal; anything else (text/html, etc.)
+  // is a rewrite or error page, never the API.
+  if (!ct.includes("application/json")) return null;
+  try {
+    const j = (await r.json()) as { ok?: boolean; version?: string };
+    return j && j.ok === true ? { ok: true, version: j.version } : null;
+  } catch {
+    // Declared JSON but unparseable: still not a healthy API.
+    return null;
+  }
+}
+
 function useDadabotStatus(): StatusState {
   const [state, setState] = React.useState<StatusState>({ status: "checking" });
   React.useEffect(() => {
@@ -81,9 +106,10 @@ function useDadabotStatus(): StatusState {
       try {
         const r = await fetch("/api/dadabot/ping", { credentials: "include" });
         if (cancelled) return;
-        if (r.ok) {
-          const j = await r.json().catch(() => ({}));
-          finalize({ status: "running", version: j.version });
+        // Do NOT trust r.ok alone: an HTML fallback also returns 200.
+        const ping = await readDadabotPing(r);
+        if (ping) {
+          finalize({ status: "running", version: ping.version });
           return;
         }
       } catch {
@@ -92,9 +118,9 @@ function useDadabotStatus(): StatusState {
       try {
         const r = await fetch("http://127.0.0.1:3737/health", { mode: "cors" });
         if (cancelled) return;
-        if (r.ok) {
-          const j = await r.json().catch(() => ({}));
-          finalize({ status: "running", version: j.version });
+        const ping = await readDadabotPing(r);
+        if (ping) {
+          finalize({ status: "running", version: ping.version });
           return;
         }
       } catch {
